@@ -1,0 +1,33 @@
+client: parameter hostname/ip [port] [topic]
+-> connect via ssl/ssh/plaintext?
+<- helo peergov contextid
+-> ehlo peergov contextid
+-> peers?
+<- send peers
+ip port
+ip port
+.
+---
+"auto sync (both directions)"
+-> chek topic lowesttopicid
+<- chek topic lowesttopicid
+<> send topics
+data
+-
+data
+.
+---
+"auto sync (both directions)"
+-> chek vote topicid lowestvoterid time
+<- chek vote topicid lowestvoterid time
+<> send votes
+data
+-
+data
+.
+---
+"client ui"
+display all known topics, options
+allow selection
+request passphrase (gpg agent?)
+send votes to all known peers

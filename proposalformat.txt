@@ -1,0 +1,10 @@
+(in yaml)
+public:
+  id      = md5(path + title) [may otherwise be freely assigned, as long as it is unique]
+  title   = title
+  short   = short summary of the proposal
+  text    = full text of the proposal
+  author  = author identification (name <email>; jabber id; whatever)
+sig: signature by trusted authority or peer over all of the above fields (how to concatenate? yaml code [ok. may not be changed thereafter]?)
+local:
+  ...
