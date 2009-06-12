@@ -3,7 +3,9 @@
 import os, sys
 import yaml
 import pyme.core
-import servent
+import pyme.constants.sigsum
+import Tix
+#import servent # we'll do that later
 
 authority = "8F5630AB" #read from config file
 directory = "./data" #make this path absolute; read from config file
@@ -19,19 +21,28 @@ class Peergov:
         if data:
           sig   = pyme.core.Data(data['sig'])
           topicy = pyme.core.Data()
-          self.cctx.op_verify(sig, None, topicy)
-          topicy.seek(0,0)
-          topic = yaml.load(topicy.read())
-          self.topics[dir]={}
-          self.topics[dir]['public'] = topic
-          self.topics[dir]['sig']    = data['sig']
+          if not self.cctx.op_verify(sig, None, topicy):
+            sigs = self.cctx.op_verify_result().signatures
+            sig = sigs[0] # we don't support multiple. 
+            valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
+            if valid:
+              topicy.seek(0,0)
+              topic = yaml.load(topicy.read())
+              self.topics[dir]={}
+              self.topics[dir]['public'] = topic
+              self.topics[dir]['sig']    = data['sig']
+              self.topics[dir]['fpr']    = sig.fpr
+            else:
+              print ("Signature of %s is not VALID." % str(dir))
+          else:
+            print ("Verification of topic %s failed." % str(dir))
       except Exception,e:
         print("Failed to parse topic signature. %s" % str(e))
     else:
       print("No topic signature found for %s." % str(dir)) 
       pass
 
-  def loadData(self, dir, file):
+  def loadData(self, dir, file): #proposals and votes?
     if file==".topic.yaml":
       return
     if dir in self.topics:
@@ -45,6 +56,11 @@ class Peergov:
         print("Failed to parse data. %s" % str(e))
     else:
       print("Skipping data file for topic %s. Not authorized." % str(dir)) 
+
+  def initGui(self):
+    self.gui = PeerGui()
+    self.gui.setTopics(self.topics)
+    self.gui.mainloop()
 
   def __init__(self):
     self.topics = {}
@@ -68,6 +84,21 @@ class Peergov:
       for file in files:
         self.loadData(root, file)
     
-    
+    self.initGui()
+
+class PeerGui:
+  def __init__(self):
+    self.frame = Tix.Tk()
+    self.wi_topics = Tix.Tree(self.frame)
+    self.wi_topics.pack()
+  
+  def setTopics(self, topics):
+    for topic,data in enumerate(topics):
+      #self.wi_topics.
+      pass
+  
+  def mainloop(self):
+    self.frame.mainloop()
+
 Peergov()
 #TODO: initiate some servents, once the data has been loaded
