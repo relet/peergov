@@ -110,16 +110,28 @@ class PeerGui:
   def __init__(self, manager):
     self.manager = manager
     self.frame = Tix.Tk()
-    self.wi_topics = Tix.Tree(self.frame)
+    self.wPane = Tix.PanedWindow(self.frame, orientation='horizontal')
+    self.wPane1 = self.wPane.add('tree')
+    self.wPane2 = self.wPane.add('info')
+    self.wTopics = Tix.Tree(self.wPane1)
+    self.wTopics['opencmd'] = self.openTree(self.wTopics, None) #lambda dir=None, w=tree: opendir(w, dir)
     self.initTree();
-    self.wi_topics.pack()
+    self.wInfo = Tix.ScrolledText(self.wPane2)
+    self.wInfo.text['width']=80
+    self.wInfo.text['height']=20
+    self.wInfo.text['state'] = 'disabled'
+    self.wInfo.pack(expand=1, fill=Tix.BOTH, padx=1, pady=1)
+    self.wTopics.pack(expand=1, fill=Tix.BOTH, padx=1, pady=1, side=Tix.LEFT)
+    self.wPane.pack(side=Tix.TOP, padx=1, pady=1, fill=Tix.BOTH, expand=1)
     
+  def openTree(self, tree, dir):
+    print str((self, tree, dir))
   
   def initTree(self):
     for fpr, authority in self.manager.authorities.iteritems():
-      self.wi_topics.hlist.add(fpr, itemtype=Tix.IMAGETEXT, text=authority.name,image=self.wi_topics.tk.call('tix', 'getimage', 'folder'))
+      self.wTopics.hlist.add(fpr, itemtype=Tix.IMAGETEXT, text=authority.name,image=self.wTopics.tk.call('tix', 'getimage', 'folder'))
       for xdir, topic in authority.topics.iteritems():
-        self.wi_topics.hlist.add(fpr+xdir, itemtype=Tix.IMAGETEXT, text=topic.data['short'],image=self.wi_topics.tk.call('tix', 'getimage', 'folder'))
+        self.wTopics.hlist.add(fpr+xdir, itemtype=Tix.IMAGETEXT, text=topic.data['short'],image=self.wTopics.tk.call('tix', 'getimage', 'folder'))
         #etc. for proposals, votes, ...
       pass
   
