@@ -8,10 +8,10 @@ import pyme.core, pyme.constants.sig
 import yaml
 
 def getPassphrase(hint, desc, prev_bad):
-  print "Passphrase Callback! %s %s %s" % (hint, desc, prev_bad)
-  sys.stdout.write("Enter passphrase: ")
-  return sys.stdin.readline().strip()
-  #return "123456"
+  #print "Passphrase Callback! %s %s %s" % (hint, desc, prev_bad)
+  #sys.stdout.write("Enter passphrase: ")
+  #return sys.stdin.readline().strip()
+  return "123456"
 
 c = pyme.core.Context()
 c.set_armor(1)
@@ -23,27 +23,28 @@ topic['title']='Where?'
 topic['id']=md5(topic['path']+topic['title']).hexdigest()
 topic['short']='Where should we go for lunch on Friday, 2009-06-12?'
 topic['text']=None
-topic['expired']=str(datetime(2009,06,12,23,59))
+topic['expired']=str(datetime(2009,6,12,23,59))
 topic['author']='futterbot'
 
 blob = pyme.core.Data(yaml.dump(topic))
 
-print ("Fetching authority key")
-c.op_keylist_start('Peergov', 0)
+#print ("Fetching authority key")
+c.op_keylist_start('Authority', 0)
 r = c.op_keylist_next()
-print r
+#print(r)
 
 if not r:
   print ("No such key found.")
   sys.exit(1)
 
-print ("Exporting key")
+#print ("Exporting key")
 key = pyme.core.Data()
-c.op_export('Peergov', 0, key)
+c.op_export('Authority', 0, key)
 
-print ("Signing data with key %s." % str(r))
+#print ("Signing data with key %s." % str(r))
 sig = pyme.core.Data()
 c.signers_add(r)
+#print ("So far, so good.")
 c.op_sign(blob, sig, pyme.constants.sig.mode.CLEAR)
 
 data = {}
@@ -52,4 +53,4 @@ data['sig'] = sig.read()
 key.seek(0,0)
 data['key'] = key.read()
 
-print yaml.dump(data)
+print(yaml.dump(data))

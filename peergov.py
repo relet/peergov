@@ -31,8 +31,8 @@ def desigsum(sigsum):
 
 class Peergov:
 
-  def loadTopic(self, dir):
-    topicsig = dir + "/" + ".topic.yaml"
+  def loadTopic(self, xdir):
+    topicsig = xdir + "/" + ".topic.yaml"
     if os.path.exists(topicsig):
       try:
         yamldata = open(topicsig, "r")
@@ -44,39 +44,40 @@ class Peergov:
             sigs = self.cctx.op_verify_result().signatures
             sig = sigs[0] # we don't support multiple. 
             valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
-            if True:#valid:
+            if valid:
               #TODO: get signature key and name using get_key(fpr)
+              sigkey = self.cctx.get_key(sig.fpr, 0)
               topicy.seek(0,0)
               topic = yaml.load(topicy.read())
               auth = self.manager.getAuthority(sig.fpr)
-              auth.name = "default" # sigkey.fullname
-              to = auth.topics[dir]=Topic()
+              auth.name = sigkey.uids[0].uid
+              to = auth.topics[xdir]=Topic()
               to.data      = topic
               to.signature = data['sig']
             else:
-              print ("Signature of %s is not VALID - %s." % (str(dir), desigsum(sig.summary)))
+              print ("Signature of %s is not VALID - %s." % (str(xdir), desigsum(sig.summary)))
           else:
-            print ("Verification of topic %s failed." % str(dir))
+            print ("Verification of topic %s failed." % str(xdir))
       except Exception,e:
         print("Failed to parse topic signature. %s" % str(e))
     else:
-      print("No topic signature found for %s." % str(dir)) 
+      print("No topic signature found for %s." % str(xdir)) 
       pass
 
   def loadData(self, dir, file): #proposals and votes?
     if file==".topic.yaml":
       return
-    if dir in self.topics:
-      try:
-        yamldata = open(dir + "/" + file, "r")
-        data = yaml.load(yamldata.read())
-        if data:
-          #verify signature
-          self.topics[dir][file]=data
-      except Exception,e:
-        print("Failed to parse data. %s" % str(e))
-    else:
-      print("Skipping data file for topic %s. Not authorized." % str(dir)) 
+    #if dir in self.topics:
+    #  try:
+    #    yamldata = open(dir + "/" + file, "r")
+    #    data = yaml.load(yamldata.read())
+    #    if data:
+    #      #verify signature
+    #      self.topics[dir][file]=data
+    #  except (Exception,e):
+    #    print("Failed to parse data. %s" % str(e))
+    #else:
+    #  print("Skipping data file for topic %s. Not authorized." % str(dir)) 
 
   def initGui(self):
     self.gui = PeerGui(self.manager)
@@ -116,11 +117,10 @@ class PeerGui:
   
   def initTree(self):
     for fpr, authority in self.manager.authorities.iteritems():
-      self.wi_topics.hlist.add(fpr, itemtype=Tix.IMAGETEXT, text=authority.name)
-      for dir, topic in authority.topics.iteritems():
-        self.wi_topics.hlist.add(fpr+dir, itemtype=Tix.IMAGETEXT, text=topic.data['short'])
+      self.wi_topics.hlist.add(fpr, itemtype=Tix.IMAGETEXT, text=authority.name,image=self.wi_topics.tk.call('tix', 'getimage', 'folder'))
+      for xdir, topic in authority.topics.iteritems():
+        self.wi_topics.hlist.add(fpr+xdir, itemtype=Tix.IMAGETEXT, text=topic.data['short'],image=self.wi_topics.tk.call('tix', 'getimage', 'folder'))
         #etc. for proposals, votes, ...
-
       pass
   
   def mainloop(self):
