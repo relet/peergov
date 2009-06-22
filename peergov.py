@@ -119,6 +119,7 @@ class PeerGui:
     self.tree.SetItemHasChildren(self.root)
 
     self.initTree()
+    self.tree.ExpandAll()
 
     box = wx.BoxSizer(wx.HORIZONTAL)
     box.Add(self.tree, 2, wx.EXPAND)
@@ -137,7 +138,15 @@ class PeerGui:
         tchild = self.tree.AppendItem(child, topic.data['short'])
   
   def OnSelectionChanged(self, treeevent):
-    print(self.tree.GetItemText(self.tree.GetSelection()))
+    item = self.tree.GetSelection()
+    parent = self.tree.GetItemParent(item)
+    if parent:
+      if parent==self.root:
+        print("Authority: %s" % str(self.tree.GetItemText(item)))
+      else:
+        print("Topic: %s" % str(self.tree.GetItemText(item)))
+    else:
+      print("ROOT: %s" % str(self.tree.GetItemText(item)))
 
   def mainloop(self):
     self.app.MainLoop()
