@@ -6,9 +6,28 @@ import pyme.core
 import pyme.constants.sigsum
 import Tix
 #import servent # we'll do that later
+from datamanager import *
 
 authority = "8F5630AB" #read from config file
 directory = "./data" #make this path absolute; read from config file
+
+#where do we put this one and all the rest of the crypto context?
+def desigsum(sigsum):
+  str = "" 
+  #for constant in dir(pyme.constants.sigsum):
+  if (sigsum & pyme.constants.sigsum.VALID)      : str += "VALID;"
+  if (sigsum & pyme.constants.sigsum.GREEN)      : str += "GREEN;"
+  if (sigsum & pyme.constants.sigsum.RED)        : str += "RED;"
+  if (sigsum & pyme.constants.sigsum.KEY_REVOKED): str += "KEY_REVOKED;"
+  if (sigsum & pyme.constants.sigsum.KEY_EXPIRED): str += "KEY_EXPIRED;"
+  if (sigsum & pyme.constants.sigsum.SIG_EXPIRED): str += "SIG_EXPIRED;"
+  if (sigsum & pyme.constants.sigsum.KEY_MISSING): str += "KEY_MISSING;"
+  if (sigsum & pyme.constants.sigsum.CRL_MISSING): str += "CRL_MISSING;"
+  if (sigsum & pyme.constants.sigsum.CRL_TOO_OLD): str += "CRL_TOO_OLD;"
+  if (sigsum & pyme.constants.sigsum.BAD_POLICY) : str += "BAD_POLICY;"
+  if (sigsum & pyme.constants.sigsum.SYS_ERROR)  : str += "SYS_ERROR;"
+  return str
+
 
 class Peergov:
 
@@ -25,15 +44,17 @@ class Peergov:
             sigs = self.cctx.op_verify_result().signatures
             sig = sigs[0] # we don't support multiple. 
             valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
-            if valid:
+            if True:#valid:
+              #TODO: get signature key and name using get_key(fpr)
               topicy.seek(0,0)
               topic = yaml.load(topicy.read())
-              self.topics[dir]={}
-              self.topics[dir]['public'] = topic
-              self.topics[dir]['sig']    = data['sig']
-              self.topics[dir]['fpr']    = sig.fpr
+              auth = self.manager.getAuthority(sig.fpr)
+              auth.name = "default" # sigkey.fullname
+              to = auth.topics[dir]=Topic()
+              to.data      = topic
+              to.signature = data['sig']
             else:
-              print ("Signature of %s is not VALID." % str(dir))
+              print ("Signature of %s is not VALID - %s." % (str(dir), desigsum(sig.summary)))
           else:
             print ("Verification of topic %s failed." % str(dir))
       except Exception,e:
@@ -58,13 +79,11 @@ class Peergov:
       print("Skipping data file for topic %s. Not authorized." % str(dir)) 
 
   def initGui(self):
-    self.gui = PeerGui()
-    self.gui.setTopics(self.topics)
+    self.gui = PeerGui(self.manager)
     self.gui.mainloop()
-
+    
   def __init__(self):
-    self.topics = {}
-    self.peers  = {}
+    self.manager = DataManager()
     self.cctx   = pyme.core.Context() #crypto context
   
     if not os.path.exists(directory):
@@ -87,14 +106,21 @@ class Peergov:
     self.initGui()
 
 class PeerGui:
-  def __init__(self):
+  def __init__(self, manager):
+    self.manager = manager
     self.frame = Tix.Tk()
     self.wi_topics = Tix.Tree(self.frame)
+    self.initTree();
     self.wi_topics.pack()
+    
   
-  def setTopics(self, topics):
-    for topic,data in enumerate(topics):
-      #self.wi_topics.
+  def initTree(self):
+    for fpr, authority in self.manager.authorities.iteritems():
+      self.wi_topics.hlist.add(fpr, itemtype=Tix.IMAGETEXT, text=authority.name)
+      for dir, topic in authority.topics.iteritems():
+        self.wi_topics.hlist.add(fpr+dir, itemtype=Tix.IMAGETEXT, text=topic.data['short'])
+        #etc. for proposals, votes, ...
+
       pass
   
   def mainloop(self):

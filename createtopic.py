@@ -8,11 +8,10 @@ import pyme.core, pyme.constants.sig
 import yaml
 
 def getPassphrase(hint, desc, prev_bad):
-  #print "Passphrase Callback! %s %s %s" % (hint, desc, prev_bad)
-  #sys.stdout.write("Enter passphrase: ")
-  #return sys.stdin.readline().strip()
-  return "123456"
-
+  print "Passphrase Callback! %s %s %s" % (hint, desc, prev_bad)
+  sys.stdout.write("Enter passphrase: ")
+  return sys.stdin.readline().strip()
+  #return "123456"
 
 c = pyme.core.Context()
 c.set_armor(1)
@@ -29,16 +28,20 @@ topic['author']='futterbot'
 
 blob = pyme.core.Data(yaml.dump(topic))
 
+print ("Fetching authority key")
 c.op_keylist_start('Peergov', 0)
 r = c.op_keylist_next()
+print r
 
 if not r:
   print ("No such key found.")
   sys.exit(1)
 
+print ("Exporting key")
 key = pyme.core.Data()
 c.op_export('Peergov', 0, key)
 
+print ("Signing data with key %s." % str(r))
 sig = pyme.core.Data()
 c.signers_add(r)
 c.op_sign(blob, sig, pyme.constants.sig.mode.CLEAR)
