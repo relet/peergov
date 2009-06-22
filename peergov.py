@@ -4,7 +4,7 @@ import os, sys
 import yaml
 import pyme.core
 import pyme.constants.sigsum
-import Tix
+import wx
 #import servent # we'll do that later
 from datamanager import *
 
@@ -109,34 +109,38 @@ class Peergov:
 class PeerGui:
   def __init__(self, manager):
     self.manager = manager
-    self.frame = Tix.Tk()
-    self.wPane = Tix.PanedWindow(self.frame, orientation='horizontal')
-    self.wPane1 = self.wPane.add('tree')
-    self.wPane2 = self.wPane.add('info')
-    self.wTopics = Tix.Tree(self.wPane1)
-    self.wTopics['opencmd'] = self.openTree(self.wTopics, None) #lambda dir=None, w=tree: opendir(w, dir)
-    self.initTree();
-    self.wInfo = Tix.ScrolledText(self.wPane2)
-    self.wInfo.text['width']=80
-    self.wInfo.text['height']=20
-    self.wInfo.text['state'] = 'disabled'
-    self.wInfo.pack(expand=1, fill=Tix.BOTH, padx=1, pady=1)
-    self.wTopics.pack(expand=1, fill=Tix.BOTH, padx=1, pady=1, side=Tix.LEFT)
-    self.wPane.pack(side=Tix.TOP, padx=1, pady=1, fill=Tix.BOTH, expand=1)
-    
-  def openTree(self, tree, dir):
-    print str((self, tree, dir))
-  
+    self.app     = wx.PySimpleApp()
+    self.frame   = wx.Frame(None, wx.ID_ANY, "Peergov edge", size=(800,600))
+    p2           = wx.Panel(self.frame,-1, style=wx.SUNKEN_BORDER)
+     
+    self.tree = wx.TreeCtrl(self.frame)
+    self.tree.Bind(wx.EVT_TREE_SEL_CHANGED, self.OnSelectionChanged, self.tree)
+    self.root = self.tree.AddRoot('Authorities')
+    self.tree.SetItemHasChildren(self.root)
+
+    self.initTree()
+
+    box = wx.BoxSizer(wx.HORIZONTAL)
+    box.Add(self.tree, 2, wx.EXPAND)
+    box.Add(p2, 3, wx.EXPAND)
+
+    self.frame.SetSizer(box)
+    self.frame.Layout()
+
+    self.frame.Show(True)
+
   def initTree(self):
     for fpr, authority in self.manager.authorities.iteritems():
-      self.wTopics.hlist.add(fpr, itemtype=Tix.IMAGETEXT, text=authority.name,image=self.wTopics.tk.call('tix', 'getimage', 'folder'))
-      for xdir, topic in authority.topics.iteritems():
-        self.wTopics.hlist.add(fpr+xdir, itemtype=Tix.IMAGETEXT, text=topic.data['short'],image=self.wTopics.tk.call('tix', 'getimage', 'folder'))
-        #etc. for proposals, votes, ...
-      pass
+      child = self.tree.AppendItem(self.root, authority.name)
+      self.tree.SetItemHasChildren(child)
+      for tid, topic in authority.topics.iteritems():
+        tchild = self.tree.AppendItem(child, topic.data['short'])
   
+  def OnSelectionChanged(self, treeevent):
+    print(self.tree.GetItemText(self.tree.GetSelection()))
+
   def mainloop(self):
-    self.frame.mainloop()
+    self.app.MainLoop()
 
 Peergov()
 #TODO: initiate some servents, once the data has been loaded
