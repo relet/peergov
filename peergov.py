@@ -107,7 +107,6 @@ class Peergov:
               print ("Key import - %i considered, %i imported, %i unchanged." % (result.considered, result.imported, result.unchanged))
             else:
               print ("Failed to import keys.")
-          #TODO: else import
         sig   = pyme.core.Data(data['sig'])
         propy = pyme.core.Data()
         if not self.cctx.op_verify(sig, None, propy):
@@ -126,7 +125,6 @@ class Peergov:
               return
             elif prop['type']=='vote' and authorized: 
               topic.votes.append(prop)
-              #print prop
               return
           elif key_missing:
             print("Signing key not available/imported for user %s from file %s." % (sig.fpr,file))
