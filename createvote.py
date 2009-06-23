@@ -18,10 +18,14 @@ c.set_armor(1)
 c.set_passphrase_cb(getPassphrase)
 
 c.op_keylist_start('Voter 1', 0)
-r = c.op_keylist_next()
+votekey = c.op_keylist_next()
 
-voterid = r.subkeys[0].fpr
-topicid = 'futterbot/lunch/20090612/place'
+if not votekey:
+  print ("No such key found.")
+  sys.exit(1)
+
+voterid = votekey.subkeys[0].fpr
+topicid = '82529AF0DBF39AAE02BFA77FE00A9A6E8F5630AB/lunch/20090612/place'
 
 authorization = yaml.dump([voterid, topicid])
 authblob      = pyme.core.Data(authorization)
@@ -42,17 +46,11 @@ if not authkey:
   print ("No such key found.")
   sys.exit(1)
 
-c.op_keylist_start('Voter 1', 0)
-votekey = c.op_keylist_next()
-
-if not votekey:
-  print ("No such key found.")
-  sys.exit(1)
-
 #sign legitimation with authority key
 authsig = pyme.core.Data()
 c.signers_add(authkey)
 c.op_sign(authblob, authsig, pyme.constants.sig.mode.CLEAR)
+c.signers_clear()
 
 #export voter key
 keyblob = pyme.core.Data()
@@ -70,6 +68,6 @@ data['auth'] = authsig.read()
 keyblob.seek(0,0)
 data['key'] = keyblob.read()
 votesig.seek(0,0)
-data['vote'] = votesig.read()
+data['sig'] = votesig.read()
 
 print(yaml.dump(data))

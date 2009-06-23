@@ -8,7 +8,6 @@ import wx, wx.html
 #import servent # we'll do that later
 from datamanager import *
 
-authority = "8F5630AB" #read from config file
 basedir   = "."
 datadir   = basedir+"/data" #make this path absolute; read from config file
 
@@ -66,7 +65,7 @@ class Peergov:
       #except Exception,e:
       #  print("Failed to parse topic signature. %s" % str(e))
     else:
-      #print("No topic signature found for %s." % str(xdir)) 
+      #print("No topic signature found for %s" % str(xdir)) 
       pass
 
   def loadData(self, xdir, file): #proposals and votes?
@@ -77,23 +76,63 @@ class Peergov:
       yamldata = open(xdir + "/" + file, "r")
       data = yaml.load(yamldata.read())
       if data:
+        authorized = None
+        if 'key' in data and 'auth' in data: #a key is provided. check key authorization
+          authsig = pyme.core.Data(data['auth'])
+          authy   = pyme.core.Data()
+          if self.cctx.op_verify(authsig, None, authy):
+            print("Vote %s not authorized." % file)
+            return
+          sigs = self.cctx.op_verify_result().signatures
+          sig  = sigs[0]
+          valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
+          if not valid:
+            print("Authorization for vote %s not VALID (%s)." % (file, desigsum(sig.summary)))
+            return
+          authy.seek(0,0)
+          auth = yaml.load(authy.read())
+          xcomp = xdir[len(datadir)+1:]
+          if auth[1] != xcomp:
+            print auth[1], xcomp
+            print("Authorization in %s not valid for topic %s." % (file, xcomp))
+            return
+          authorized = auth[0]
+          try:
+            votekey = self.cctx.get_key(auth[0], 0)
+          except:
+            keydata = pyme.core.Data(data['key'])
+            fail = self.cctx.op_import(keydata)
+            if not fail:
+              result = self.cctx.op_import_result()
+              print ("Key import - %i considered, %i imported, %i unchanged." % (result.considered, result.imported, result.unchanged))
+            else:
+              print ("Failed to import keys.")
+          #TODO: else import
         sig   = pyme.core.Data(data['sig'])
         propy = pyme.core.Data()
         if not self.cctx.op_verify(sig, None, propy):
           sigs = self.cctx.op_verify_result().signatures
           sig = sigs[0] # we don't support multiple. 
+          key_missing = (sig.summary & pyme.constants.sigsum.KEY_MISSING) > 0
           valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
           if valid:
+            if authorized and sig.fpr != authorized:
+              print("Authorization in %s not valid for signing user %s." % (file, sig.fpr))
+              return
             propy.seek(0,0)
             prop = yaml.load(propy.read())
             if prop['type']=='proposal': 
               topic.proposals.append(prop)
               return
-            elif prop['type']=='vote': 
+            elif prop['type']=='vote' and authorized: 
               topic.votes.append(prop)
+              #print prop
               return
+          elif key_missing:
+            print("Signing key not available/imported for user %s from file %s." % (sig.fpr,file))
+            return
     else:
-      print("Skipping data file %s. No authority/topic found." % str(dir)) 
+      print("Skipping data file %s/%s. No authority/topic found." % (xdir, file)) 
 
   def initGui(self):
     self.gui = PeerGui(self.manager)
@@ -171,6 +210,8 @@ class PeerGui:
 
   def initTree(self, collapsed=True):
     for fpr, authority in self.manager.authorities.iteritems():
+      if not authority.name:
+        continue
       child = self.tree.AppendItem(self.root, authority.name)
       self.tree.SetItemData(child, wx.TreeItemData(authority.fpr))
       self.tree.SetItemHasChildren(child)

@@ -20,9 +20,9 @@ c.set_passphrase_cb(getPassphrase)
 topic = {}
 topic['type']='proposal'
 topic['path']='futterbot/lunch/20090612/place'
-topic['title']='Indira'
+topic['title']='Da Giorgio'
 topic['id']=md5(topic['path']+topic['title']).hexdigest()
-topic['short']='We shall eat specially selected South Indian specialties.'
+topic['short']='We shall eat finest Italian pizza and pasta.'
 topic['text']=None
 topic['expired']=str(datetime(2009,6,12,23,59))
 topic['author']='futterbot'
