@@ -9,7 +9,8 @@ import wx
 from datamanager import *
 
 authority = "8F5630AB" #read from config file
-directory = "./data" #make this path absolute; read from config file
+basedir   = "."
+datadir   = basedir+"/data" #make this path absolute; read from config file
 
 #where do we put this one and all the rest of the crypto context?
 def desigsum(sigsum):
@@ -34,7 +35,7 @@ class Peergov:
   def loadTopic(self, xdir):
     topicsig = xdir + "/" + ".topic.yaml"
     if os.path.exists(topicsig):
-      try:
+      #try:
         yamldata = open(topicsig, "r")
         data = yaml.load(yamldata.read())
         if data:
@@ -49,6 +50,8 @@ class Peergov:
               sigkey = self.cctx.get_key(sig.fpr, 0)
               topicy.seek(0,0)
               topic = yaml.load(topicy.read())
+              if not topic['type']=='topic': #someone exchanged the files
+                return
               auth = self.manager.getAuthority(sig.fpr)
               auth.name = sigkey.uids[0].uid
               to = auth.topics[xdir]=Topic()
@@ -58,26 +61,43 @@ class Peergov:
               print ("Signature of %s is not VALID - %s." % (str(xdir), desigsum(sig.summary)))
           else:
             print ("Verification of topic %s failed." % str(xdir))
-      except Exception,e:
-        print("Failed to parse topic signature. %s" % str(e))
+      #except Exception,e:
+      #  print("Failed to parse topic signature. %s" % str(e))
     else:
-      print("No topic signature found for %s." % str(xdir)) 
+      #print("No topic signature found for %s." % str(xdir)) 
       pass
 
-  def loadData(self, dir, file): #proposals and votes?
+  def loadData(self, xdir, file): #proposals and votes?
     if file==".topic.yaml":
       return
-    #if dir in self.topics:
-    #  try:
-    #    yamldata = open(dir + "/" + file, "r")
-    #    data = yaml.load(yamldata.read())
-    #    if data:
-    #      #verify signature
-    #      self.topics[dir][file]=data
-    #  except (Exception,e):
-    #    print("Failed to parse data. %s" % str(e))
-    #else:
-    #  print("Skipping data file for topic %s. Not authorized." % str(dir)) 
+    dirs = xdir[len(datadir)+1:].split("/") 
+    authority = self.manager.getAuthority(dirs[0])
+    if authority:
+      if xdir in authority.topics:
+        #try:
+          topic = authority.topics[xdir]
+          yamldata = open(xdir + "/" + file, "r")
+          data = yaml.load(yamldata.read())
+          if data:
+            sig   = pyme.core.Data(data['sig'])
+            propy = pyme.core.Data()
+            if not self.cctx.op_verify(sig, None, propy):
+              sigs = self.cctx.op_verify_result().signatures
+              sig = sigs[0] # we don't support multiple. 
+              valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
+              if valid:
+                propy.seek(0,0)
+                prop = yaml.load(propy.read())
+                if prop['type']=='proposal': 
+                  topic.proposals.append(prop)
+                  return
+                elif prop['type']=='vote': 
+                  topic.votes.append(prop)
+                  return
+        #except (Exception,e):
+        #  print("Failed to parse data. %s" % str(e))
+    else:
+      print("Skipping data file %s. No authority/topic found." % str(dir)) 
 
   def initGui(self):
     self.gui = PeerGui(self.manager)
@@ -87,18 +107,18 @@ class Peergov:
     self.manager = DataManager()
     self.cctx   = pyme.core.Context() #crypto context
   
-    if not os.path.exists(directory):
+    if not os.path.exists(datadir):
       try: 
-        print("Directory %s not found. Creating." % str(directory))
-        os.mkdir(directory)
+        print("Directory %s not found. Attempting to create." % str(datadir))
+        os.mkdir(datadir)
       except:
         print("Failed creating data directory. Aborting.")
         sys.exit(1)
-    if not os.path.isdir(directory):
-      print("Path %s is not a directory. Aborting." % str(directory))
+    if not os.path.isdir(datadir):
+      print("Path %s is not a directory. Aborting." % str(datadir))
       sys.exit(1)
     
-    for root, dirs, files in os.walk(directory):
+    for root, dirs, files in os.walk(datadir):
       for dir in dirs:
         self.loadTopic(root + "/" + dir)
       for file in files:
@@ -118,7 +138,7 @@ class PeerGui:
     self.root = self.tree.AddRoot('Authorities')
     self.tree.SetItemHasChildren(self.root)
 
-    self.initTree()
+    self.resetTree(True)
     self.tree.ExpandAll()
 
     box = wx.BoxSizer(wx.HORIZONTAL)
@@ -130,23 +150,45 @@ class PeerGui:
 
     self.frame.Show(True)
 
-  def initTree(self):
+  def resetTree(self, collapsed=True):
+    self.tree.DeleteChildren(self.root)
+    self.initTree(collapsed)
+
+  def initTree(self, collapsed=True):
     for fpr, authority in self.manager.authorities.iteritems():
       child = self.tree.AppendItem(self.root, authority.name)
       self.tree.SetItemHasChildren(child)
       for tid, topic in authority.topics.iteritems():
-        tchild = self.tree.AppendItem(child, topic.data['short'])
+        parent = child
+        if not collapsed:
+          dirs = tid[len(datadir)+1:].split("/")[1:]
+          for xdir in dirs:
+            parent = self.tree.AppendItem(parent, xdir)
+            self.tree.SetItemHasChildren(parent)
+        tchild = self.tree.AppendItem(parent, topic.data['title'])
+  
+  def resetRightPanel(self):
+    pass
+  def displayTopicInfo(self):
+    pass
   
   def OnSelectionChanged(self, treeevent):
     item = self.tree.GetSelection()
-    parent = self.tree.GetItemParent(item)
+    parent    = self.tree.GetItemParent(item)
+    children  = self.tree.ItemHasChildren(item)
     if parent:
       if parent==self.root:
-        print("Authority: %s" % str(self.tree.GetItemText(item)))
+#        print("Authority: %s" % str(self.tree.GetItemText(item)))
+        self.resetRightPanel()
+      elif children:
+#        print("Folder: %s" % str(self.tree.GetItemText(item)))
+        self.resetRightPanel()
       else:
-        print("Topic: %s" % str(self.tree.GetItemText(item)))
+#        print("Topic: %s" % str(self.tree.GetItemText(item)))
+        self.displayTopicInfo()
     else:
-      print("ROOT: %s" % str(self.tree.GetItemText(item)))
+#      print("ROOT: %s" % str(self.tree.GetItemText(item)))
+      self.resetRightPanel()
 
   def mainloop(self):
     self.app.MainLoop()

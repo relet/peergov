@@ -18,11 +18,11 @@ c.set_armor(1)
 c.set_passphrase_cb(getPassphrase)
 
 topic = {}
-topic['type']='topic'
+topic['type']='proposal'
 topic['path']='futterbot/lunch/20090612/place'
-topic['title']='Where?'
+topic['title']='Pizzeria Da Giorgio'
 topic['id']=md5(topic['path']+topic['title']).hexdigest()
-topic['short']='Where should we go for lunch on Friday, 2009-06-12?'
+topic['short']='We shall eat tasty pizza and pasta at the most exquisite pizza place.'
 topic['text']=None
 topic['expired']=str(datetime(2009,6,12,23,59))
 topic['author']='futterbot'
