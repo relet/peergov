@@ -180,8 +180,11 @@ class PeerGui:
 
     self.text = wx.html.HtmlWindow(self.frame)
 
-    self.list1 = wx.ListCtrl(self.frame)
-    self.list2 = wx.ListCtrl(self.frame)
+    notebook = wx.Notebook(self.frame, wx.ID_ANY)
+
+    panel1 = wx.Panel(notebook)
+    self.list1 = wx.ListCtrl(panel1)
+    self.list2 = wx.ListCtrl(panel1)
     
     self.list1.Bind(wx.EVT_LIST_ITEM_SELECTED, self.OnProposalSelected, self.list1)
     self.list2.Bind(wx.EVT_LIST_ITEM_SELECTED, self.OnProposalSelected, self.list2)
@@ -189,14 +192,20 @@ class PeerGui:
     box3 = wx.BoxSizer(wx.HORIZONTAL)
     box3.Add(self.list1, 1, wx.EXPAND)
     box3.Add(self.list2, 1, wx.EXPAND)
+    panel1.SetSizer(box3)
 
+    self.results = wx.ListCtrl(notebook) #make this a html or canvas, showing the results in beautiful
+
+    notebook.AddPage(panel1, "Ballot")
+    notebook.AddPage(self.results, "Results")
+    
     box2 = wx.BoxSizer(wx.VERTICAL)
     box2.Add(self.text, 1, wx.EXPAND)
-    box2.Add(box3, 1, wx.EXPAND)
+    box2.Add(notebook, 1, wx.EXPAND)
 
     box1 = wx.BoxSizer(wx.HORIZONTAL)
-    box1.Add(self.tree, 2, wx.EXPAND)
-    box1.Add(box2, 3, wx.EXPAND)
+    box1.Add(self.tree, 1, wx.EXPAND)
+    box1.Add(box2, 2, wx.EXPAND)
 
     self.currentTopic = None
 
@@ -259,7 +268,7 @@ class PeerGui:
       for i,vote in enumerate(topic.votes):
         #TODO: eliminate invalid choices from ballot
         voting.addVote(vote['vote'])
-      print ("Results for this topic: %s" % (str(voting.getRanks())))
+      print ("DEBUG - Results for this topic: %s" % (str(voting.getRanks())))
     else:
       self.resetRightPanel()
   
