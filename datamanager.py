@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 
+import SchulzeVoting
+
 class DataManager:
-  datadir     = "."
-  authorities = {} #fpr -> Authority
-  peers       = {} #fpr -> Peer
-  
+
+  def __init__(self):
+    self.datadir     = "."
+    self.authorities = {} #fpr -> Authority
+    self.peers       = {} #fpr -> Peer
+
   def getAuthority(self, fpr):
     if not fpr in self.authorities:
       self.authorities[fpr]=Authority()

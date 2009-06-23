@@ -5,6 +5,7 @@ import yaml
 import pyme.core
 import pyme.constants.sigsum
 import wx, wx.html
+import SchulzeVoting
 #import servent # we'll do that later
 from datamanager import *
 
@@ -133,10 +134,11 @@ class Peergov:
       print("Skipping data file %s/%s. No authority/topic found." % (xdir, file)) 
 
   def initGui(self):
-    self.gui = PeerGui(self.manager)
+    self.gui = PeerGui(self, self.manager)
     self.gui.mainloop()
     
   def __init__(self):
+    self.voting = SchulzeVoting.SchulzeVoting()
     self.manager = DataManager()
     self.manager.datadir = datadir
     self.cctx   = pyme.core.Context() #crypto context
@@ -161,7 +163,8 @@ class Peergov:
     self.initGui()
 
 class PeerGui:
-  def __init__(self, manager):
+  def __init__(self, peergov, manager):
+    self.peergov = peergov
     self.manager = manager
     self.app     = wx.PySimpleApp()
     self.frame   = wx.Frame(None, wx.ID_ANY, "Peergov edge", size=(800,600))
@@ -240,6 +243,8 @@ class PeerGui:
   def displayTopicInfo(self, tpath):
     authority, topic = self.manager.getTopicByPath(tpath)
     self.currentTopic = topic
+    voting = self.peergov.voting
+    voting.reset()
     if authority and topic:
       self.text.SetPage(self.genHTML(topic))
       item = wx.ListItem()
@@ -251,6 +256,10 @@ class PeerGui:
         item.SetText(proposal['title'])
         item.SetData(i)
         self.list1.InsertItem(item)
+      for i,vote in enumerate(topic.votes):
+        #TODO: eliminate invalid choices from ballot
+        voting.addVote(vote['vote'])
+      print ("Results for this topic: %s" % (str(voting.getRanks())))
     else:
       self.resetRightPanel()
   
