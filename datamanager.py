@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 class DataManager:
+  datadir     = "."
   authorities = {} #fpr -> Authority
   peers       = {} #fpr -> Peer
   
@@ -8,9 +9,19 @@ class DataManager:
     if not fpr in self.authorities:
       self.authorities[fpr]=Authority()
     return self.authorities[fpr]
-  
+
+  def getTopicByPath(self, topicpath): 
+    dirs = topicpath[len(self.datadir)+1:].split("/") 
+    authority = self.getAuthority(dirs[0])
+    if authority:
+      if topicpath in authority.topics:
+        topic = authority.topics[topicpath]
+        return authority, topic
+    return None, None
+
 class Authority:
   name        = None
+  fpr         = None
   topics      = {} #topicid -> Topic    
   
 class Topic:

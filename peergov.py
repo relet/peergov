@@ -4,7 +4,7 @@ import os, sys
 import yaml
 import pyme.core
 import pyme.constants.sigsum
-import wx
+import wx, wx.html
 #import servent # we'll do that later
 from datamanager import *
 
@@ -28,6 +28,7 @@ def desigsum(sigsum):
   if (sigsum & pyme.constants.sigsum.BAD_POLICY) : str += "BAD_POLICY;"
   if (sigsum & pyme.constants.sigsum.SYS_ERROR)  : str += "SYS_ERROR;"
   return str
+
 
 
 class Peergov:
@@ -54,6 +55,7 @@ class Peergov:
                 return
               auth = self.manager.getAuthority(sig.fpr)
               auth.name = sigkey.uids[0].uid
+              auth.fpr = sig.fpr
               to = auth.topics[xdir]=Topic()
               to.data      = topic
               to.signature = data['sig']
@@ -70,32 +72,26 @@ class Peergov:
   def loadData(self, xdir, file): #proposals and votes?
     if file==".topic.yaml":
       return
-    dirs = xdir[len(datadir)+1:].split("/") 
-    authority = self.manager.getAuthority(dirs[0])
-    if authority:
-      if xdir in authority.topics:
-        #try:
-          topic = authority.topics[xdir]
-          yamldata = open(xdir + "/" + file, "r")
-          data = yaml.load(yamldata.read())
-          if data:
-            sig   = pyme.core.Data(data['sig'])
-            propy = pyme.core.Data()
-            if not self.cctx.op_verify(sig, None, propy):
-              sigs = self.cctx.op_verify_result().signatures
-              sig = sigs[0] # we don't support multiple. 
-              valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
-              if valid:
-                propy.seek(0,0)
-                prop = yaml.load(propy.read())
-                if prop['type']=='proposal': 
-                  topic.proposals.append(prop)
-                  return
-                elif prop['type']=='vote': 
-                  topic.votes.append(prop)
-                  return
-        #except (Exception,e):
-        #  print("Failed to parse data. %s" % str(e))
+    authority, topic = self.manager.getTopicByPath(xdir)
+    if authority and topic:
+      yamldata = open(xdir + "/" + file, "r")
+      data = yaml.load(yamldata.read())
+      if data:
+        sig   = pyme.core.Data(data['sig'])
+        propy = pyme.core.Data()
+        if not self.cctx.op_verify(sig, None, propy):
+          sigs = self.cctx.op_verify_result().signatures
+          sig = sigs[0] # we don't support multiple. 
+          valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
+          if valid:
+            propy.seek(0,0)
+            prop = yaml.load(propy.read())
+            if prop['type']=='proposal': 
+              topic.proposals.append(prop)
+              return
+            elif prop['type']=='vote': 
+              topic.votes.append(prop)
+              return
     else:
       print("Skipping data file %s. No authority/topic found." % str(dir)) 
 
@@ -105,6 +101,7 @@ class Peergov:
     
   def __init__(self):
     self.manager = DataManager()
+    self.manager.datadir = datadir
     self.cctx   = pyme.core.Context() #crypto context
   
     if not os.path.exists(datadir):
@@ -131,21 +128,39 @@ class PeerGui:
     self.manager = manager
     self.app     = wx.PySimpleApp()
     self.frame   = wx.Frame(None, wx.ID_ANY, "Peergov edge", size=(800,600))
-    p2           = wx.Panel(self.frame,-1, style=wx.SUNKEN_BORDER)
+    self.panel   = wx.Panel(self.frame, wx.ID_ANY, style=wx.SUNKEN_BORDER)
      
     self.tree = wx.TreeCtrl(self.frame)
-    self.tree.Bind(wx.EVT_TREE_SEL_CHANGED, self.OnSelectionChanged, self.tree)
+    self.tree.Bind(wx.EVT_TREE_SEL_CHANGED, self.OnTreeSelectionChanged, self.tree)
     self.root = self.tree.AddRoot('Authorities')
     self.tree.SetItemHasChildren(self.root)
 
     self.resetTree(True)
     self.tree.ExpandAll()
 
-    box = wx.BoxSizer(wx.HORIZONTAL)
-    box.Add(self.tree, 2, wx.EXPAND)
-    box.Add(p2, 3, wx.EXPAND)
+    self.text = wx.html.HtmlWindow(self.frame)
 
-    self.frame.SetSizer(box)
+    self.list1 = wx.ListCtrl(self.frame)
+    self.list2 = wx.ListCtrl(self.frame)
+    
+    self.list1.Bind(wx.EVT_LIST_ITEM_SELECTED, self.OnProposalSelected, self.list1)
+    self.list2.Bind(wx.EVT_LIST_ITEM_SELECTED, self.OnProposalSelected, self.list2)
+
+    box3 = wx.BoxSizer(wx.HORIZONTAL)
+    box3.Add(self.list1, 1, wx.EXPAND)
+    box3.Add(self.list2, 1, wx.EXPAND)
+
+    box2 = wx.BoxSizer(wx.VERTICAL)
+    box2.Add(self.text, 1, wx.EXPAND)
+    box2.Add(box3, 1, wx.EXPAND)
+
+    box1 = wx.BoxSizer(wx.HORIZONTAL)
+    box1.Add(self.tree, 2, wx.EXPAND)
+    box1.Add(box2, 3, wx.EXPAND)
+
+    self.currentTopic = None
+
+    self.frame.SetSizer(box1)
     self.frame.Layout()
 
     self.frame.Show(True)
@@ -157,6 +172,7 @@ class PeerGui:
   def initTree(self, collapsed=True):
     for fpr, authority in self.manager.authorities.iteritems():
       child = self.tree.AppendItem(self.root, authority.name)
+      self.tree.SetItemData(child, wx.TreeItemData(authority.fpr))
       self.tree.SetItemHasChildren(child)
       for tid, topic in authority.topics.iteritems():
         parent = child
@@ -166,28 +182,65 @@ class PeerGui:
             parent = self.tree.AppendItem(parent, xdir)
             self.tree.SetItemHasChildren(parent)
         tchild = self.tree.AppendItem(parent, topic.data['title'])
+        self.tree.SetItemData(tchild, wx.TreeItemData(tid))
   
   def resetRightPanel(self):
+    self.text.SetPage("")
+    self.list1.DeleteAllItems()
+    self.list2.DeleteAllItems()
     pass
-  def displayTopicInfo(self):
-    pass
+    
+  def genHTML(self, topic, proposal=None):
+    html = u"<p><b>%s</b></p><p>%s</p>" % (topic.data['title'], topic.data['short'])
+    html += "<hr />"
+    if proposal:
+      html += "<p><b>%s</b></p><p>%s</p>" % (proposal['title'], proposal['short'])
+    return html
+      
+    
+  def displayTopicInfo(self, tpath):
+    authority, topic = self.manager.getTopicByPath(tpath)
+    self.currentTopic = topic
+    if authority and topic:
+      self.text.SetPage(self.genHTML(topic))
+      item = wx.ListItem()
+      item.SetText("--- Don't care ---")
+      item.SetData(-1)
+      self.list2.InsertItem(item)
+      for i,proposal in enumerate(topic.proposals):
+        item = wx.ListItem()
+        item.SetText(proposal['title'])
+        item.SetData(i)
+        self.list1.InsertItem(item)
+    else:
+      self.resetRightPanel()
   
-  def OnSelectionChanged(self, treeevent):
+  def OnProposalSelected(self, listevent):
+    item  = listevent.GetItem()
+    index = item.GetData()
+    if index>=0:
+      proposal = self.currentTopic.proposals[index]
+    else:
+      proposal = None
+    self.text.SetPage(self.genHTML(self.currentTopic, proposal))
+  
+  def OnTreeSelectionChanged(self, treeevent):
     item = self.tree.GetSelection()
     parent    = self.tree.GetItemParent(item)
     children  = self.tree.ItemHasChildren(item)
+    label     = self.tree.GetItemText(item)
     if parent:
       if parent==self.root:
-#        print("Authority: %s" % str(self.tree.GetItemText(item)))
+#        print("Authority: %s" % label)
         self.resetRightPanel()
       elif children:
-#        print("Folder: %s" % str(self.tree.GetItemText(item)))
+#        print("Folder: %s" % label)
         self.resetRightPanel()
       else:
-#        print("Topic: %s" % str(self.tree.GetItemText(item)))
-        self.displayTopicInfo()
+#        print("Topic: %s" % label)
+        self.displayTopicInfo(self.tree.GetItemData(item).GetData())
     else:
-#      print("ROOT: %s" % str(self.tree.GetItemText(item)))
+#      print("ROOT: %s" % label)
       self.resetRightPanel()
 
   def mainloop(self):
