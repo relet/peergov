@@ -184,14 +184,40 @@ class PeerGui:
 
     panel1 = wx.Panel(notebook)
     self.list1 = wx.ListCtrl(panel1)
+    buttonpanel1 = wx.Panel(panel1)
+    buttonadd = wx.Button(buttonpanel1, wx.ID_ANY, u"\u2192", style=wx.BU_EXACTFIT)
+    buttonadd.Bind(wx.EVT_BUTTON, self.changePreference)
+    buttonrem = wx.Button(buttonpanel1, wx.ID_ANY, u"\u2190", style=wx.BU_EXACTFIT)
+    buttonrem.Bind(wx.EVT_BUTTON, self.changePreference)
+    buttonsizer = wx.BoxSizer(wx.VERTICAL)
+    buttonsizer.Add(buttonadd, 1, wx.CENTER)
+    buttonsizer.Add(buttonrem, 1, wx.CENTER)
+    buttonpanel1.SetSizer(buttonsizer)
     self.list2 = wx.ListCtrl(panel1)
+    buttonpanel2 = wx.Panel(panel1)
+    button2up = wx.Button(buttonpanel2, wx.ID_ANY, u"\u219F", style=wx.BU_EXACTFIT)
+    button2up.Bind(wx.EVT_BUTTON, self.changePreference)
+    buttonup = wx.Button(buttonpanel2, wx.ID_ANY, u"\u2191", style=wx.BU_EXACTFIT)
+    buttonup.Bind(wx.EVT_BUTTON, self.changePreference)
+    buttondn = wx.Button(buttonpanel2, wx.ID_ANY, u"\u2193", style=wx.BU_EXACTFIT)
+    buttondn.Bind(wx.EVT_BUTTON, self.changePreference)
+    button2dn = wx.Button(buttonpanel2, wx.ID_ANY, u"\u21A1", style=wx.BU_EXACTFIT)
+    button2dn.Bind(wx.EVT_BUTTON, self.changePreference)
+    buttonsizer2 = wx.BoxSizer(wx.VERTICAL)
+    buttonsizer2.Add(button2up, 1, wx.CENTER)
+    buttonsizer2.Add(buttonup, 1, wx.CENTER)
+    buttonsizer2.Add(buttondn, 1, wx.CENTER)
+    buttonsizer2.Add(button2dn, 1, wx.CENTER)
+    buttonpanel2.SetSizer(buttonsizer2)
     
     self.list1.Bind(wx.EVT_LIST_ITEM_SELECTED, self.OnProposalSelected, self.list1)
     self.list2.Bind(wx.EVT_LIST_ITEM_SELECTED, self.OnProposalSelected, self.list2)
 
     box3 = wx.BoxSizer(wx.HORIZONTAL)
-    box3.Add(self.list1, 1, wx.EXPAND)
-    box3.Add(self.list2, 1, wx.EXPAND)
+    box3.Add(self.list1, 8, wx.EXPAND)
+    box3.Add(buttonpanel1, 1, wx.CENTER)
+    box3.Add(self.list2, 8, wx.EXPAND)
+    box3.Add(buttonpanel2, 1, wx.CENTER)
     panel1.SetSizer(box3)
 
     self.results = wx.ListCtrl(notebook) #make this a html or canvas, showing the results in beautiful
@@ -299,6 +325,32 @@ class PeerGui:
     else:
 #      print("ROOT: %s" % label)
       self.resetRightPanel()
+
+  def changePreference(self, event):
+    label = event.GetEventObject().GetLabel()
+    if label == u"\u21d2": # add
+      index = self.list1.GetFirstSelected()
+      item  = self.list1.GetItem(index)
+      if item:
+        self.list2.InsertItem(item)
+        self.list1.DeleteItem(index)
+    elif label == u"\u21d0": # remove
+      index = self.list2.GetFirstSelected()
+      item  = self.list2.GetItem(index)
+      if item:
+        self.list1.InsertItem(item)
+        self.list2.DeleteItem(index)
+    elif label == u"\u21d1": # up
+      index = self.list2.GetFirstSelected()
+      item  = self.list2.GetItem(index)
+      if item:
+        pass
+    elif label == u"\u21d3": # down
+      index = self.list2.GetFirstSelected()
+      item  = self.list2.GetItem(index)
+      if item:
+        pass
+    
 
   def mainloop(self):
     self.app.MainLoop()
