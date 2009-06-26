@@ -29,8 +29,6 @@ def desigsum(sigsum):
   if (sigsum & pyme.constants.sigsum.SYS_ERROR)  : str += "SYS_ERROR;"
   return str
 
-
-
 class Peergov:
 
   def loadTopic(self, xdir):
@@ -283,7 +281,7 @@ class PeerGui:
     if authority and topic:
       self.text.SetPage(self.genHTML(topic))
       item = wx.ListItem()
-      item.SetText("--- Don't care ---")
+      item.SetText("--- Any (other) option ---")
       item.SetData(-1)
       self.list2.InsertItem(item)
       for i,proposal in enumerate(topic.proposals):
@@ -326,30 +324,64 @@ class PeerGui:
 #      print("ROOT: %s" % label)
       self.resetRightPanel()
 
+  def listSortBottom(self, i1, i2):
+    if i1 == self.sortingItem:
+      return 1
+    return -1
+  def listSortTop(self, i1, i2):
+    if i2 == self.sortingItem:
+      return 1
+    return -1
+  def listSortUp(self, i1, i2):
+    if (i2 == self.sortingItem) and (i1 == self.sortingItem2):
+      return 1
+    return -1
+  def listSortDown(self, i1, i2):
+    if (i1 == self.sortingItem) and (i2 == self.sortingItem2):
+      return 1
+    return -1
+    
+
   def changePreference(self, event):
     label = event.GetEventObject().GetLabel()
-    if label == u"\u21d2": # add
+    if label == u"\u2192": # add
       index = self.list1.GetFirstSelected()
       item  = self.list1.GetItem(index)
-      if item:
+      if item != None:
         self.list2.InsertItem(item)
         self.list1.DeleteItem(index)
-    elif label == u"\u21d0": # remove
+    elif label == u"\u2190": # remove
       index = self.list2.GetFirstSelected()
       item  = self.list2.GetItem(index)
-      if item:
+      if item != None:
         self.list1.InsertItem(item)
         self.list2.DeleteItem(index)
-    elif label == u"\u21d1": # up
+    elif label == u"\u2191": # up
       index = self.list2.GetFirstSelected()
-      item  = self.list2.GetItem(index)
-      if item:
-        pass
-    elif label == u"\u21d3": # down
+      #item  = self.list2.GetItem(index)
+      self.sortingItem = self.list2.GetItemData(index)
+      self.sortingItem2 = self.list2.GetItemData(index-1)
+      if index != None:
+        self.list2.SortItems(self.listSortUp)
+    elif label == u"\u2193": # down
       index = self.list2.GetFirstSelected()
-      item  = self.list2.GetItem(index)
-      if item:
-        pass
+      #item  = self.list2.GetItem(index)
+      self.sortingItem = self.list2.GetItemData(index)
+      self.sortingItem2 = self.list2.GetItemData(index+1)
+      if index != None:
+        self.list2.SortItems(self.listSortDown)
+    elif label == u"\u219F": # top
+      index = self.list2.GetFirstSelected()
+      #item  = self.list2.GetItem(index)
+      self.sortingItem = self.list2.GetItemData(index)
+      if index != None:
+        self.list2.SortItems(self.listSortTop)
+    elif label == u"\u21A1": # bottom
+      index = self.list2.GetFirstSelected()
+      #item  = self.list2.GetItem(index)
+      self.sortingItem = self.list2.GetItemData(index)
+      if index != None:
+        self.list2.SortItems(self.listSortBottom)
     
 
   def mainloop(self):
