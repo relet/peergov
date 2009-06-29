@@ -7,7 +7,9 @@ import pyme.constants.sigsum
 import wx, wx.html
 import SchulzeVoting
 #import servent # we'll do that later
-from datamanager import *
+from datamanager import Authority, Topic, DataManager
+from cryptutils import createVote
+
 
 basedir   = "."
 datadir   = basedir+"/data" #make this path absolute; read from config file
@@ -30,7 +32,6 @@ def desigsum(sigsum):
   return str
 
 class Peergov:
-
   def loadTopic(self, xdir):
     topicsig = xdir + "/" + ".topic.yaml"
     if os.path.exists(topicsig):
@@ -191,7 +192,10 @@ class PeerGui:
     buttonsizer.Add(buttonadd, 1, wx.CENTER)
     buttonsizer.Add(buttonrem, 1, wx.CENTER)
     buttonpanel1.SetSizer(buttonsizer)
-    self.list2 = wx.ListCtrl(panel1)
+    
+    list2panel = wx.Panel(panel1)
+    
+    self.list2 = wx.ListCtrl(list2panel)
     buttonpanel2 = wx.Panel(panel1)
     button2up = wx.Button(buttonpanel2, wx.ID_ANY, u"\u219F", style=wx.BU_EXACTFIT)
     button2up.Bind(wx.EVT_BUTTON, self.changePreference)
@@ -211,10 +215,18 @@ class PeerGui:
     self.list1.Bind(wx.EVT_LIST_ITEM_SELECTED, self.OnProposalSelected, self.list1)
     self.list2.Bind(wx.EVT_LIST_ITEM_SELECTED, self.OnProposalSelected, self.list2)
 
+    buttonvote = wx.Button(list2panel, wx.ID_ANY, u"Submit vote")
+    buttonvote.Bind(wx.EVT_BUTTON, self.submitVote)
+    
+    box4 = wx.BoxSizer(wx.VERTICAL)
+    box4.Add(self.list2, 12, wx.EXPAND)
+    box4.Add(buttonvote, 1, wx.EXPAND)
+    list2panel.SetSizer(box4)
+
     box3 = wx.BoxSizer(wx.HORIZONTAL)
     box3.Add(self.list1, 8, wx.EXPAND)
     box3.Add(buttonpanel1, 1, wx.CENTER)
-    box3.Add(self.list2, 8, wx.EXPAND)
+    box3.Add(list2panel, 8, wx.EXPAND)
     box3.Add(buttonpanel2, 1, wx.CENTER)
     panel1.SetSizer(box3)
 
@@ -270,8 +282,7 @@ class PeerGui:
     html += "<hr />"
     if proposal:
       html += "<p><b>%s</b></p><p>%s</p>" % (proposal['title'], proposal['short'])
-    return html
-      
+    return html   
     
   def displayTopicInfo(self, tpath):
     authority, topic = self.manager.getTopicByPath(tpath)
@@ -341,6 +352,16 @@ class PeerGui:
       return 1
     return -1
     
+  def submitVote(self, event):
+    print(str(event))
+    # voter = TODO: read from configuration file
+    topicid = self.currentTopic
+    # authorization = TODO: read from authorization file/folder
+    vote = []
+    #for item in list2:
+    #  proposalId = ???
+    #  vote.append(proposalId)
+    # createVote(voter, topicid, authorization, vote):
 
   def changePreference(self, event):
     label = event.GetEventObject().GetLabel()
@@ -353,6 +374,8 @@ class PeerGui:
     elif label == u"\u2190": # remove
       index = self.list2.GetFirstSelected()
       item  = self.list2.GetItem(index)
+      if self.list2.GetItemData(index) == -1: # skip the any-item placeholder
+        return
       if item != None:
         self.list1.InsertItem(item)
         self.list2.DeleteItem(index)
