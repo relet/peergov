@@ -30,10 +30,24 @@ def desigsum(sigsum):
 class Peergov:
   def loadAuth(self, xdir, xfile):
     data = yaml.load(open(xdir+"/"+xfile, "r"))
-    #TODO: verify authorization signature
-    #TODO: verify that authorization is actually issued for this user
     for auth in data.keys():
-      self.authorizations[auth]=data[auth]
+      sig   = pyme.core.Data(data[auth])
+      authy = pyme.core.Data()
+      if not self.cctx.op_verify(sig, None, authy):
+        sigs = self.cctx.op_verify_result().signatures
+        sig = sigs[0] # we don't support multiple. 
+        valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
+        if valid:
+          authy.seek(0,0)
+          authcontent = yaml.load(authy.read())
+          if authcontent[0]==self.user:
+            self.authorizations[auth]=data[auth]
+          else:
+            print("Authorization %s not valid for this user %s." % (xfile, self.user))
+        else:
+          print ("Signature of authorization %s is not VALID - %s." % (str(xfile), desigsum(sig.summary)))
+      else:
+        print ("Failed to verify authorization %s" % (str(xfile)))
 
   def loadTopic(self, xdir):
     topicsig = xdir + "/" + ".topic.yaml"
@@ -157,6 +171,7 @@ class Peergov:
     self.basedir = self.config['basedir']
     self.datadir = self.config['datadir']
     self.authdir = self.config['authdir']
+    self.user    = self.config['userfpr']
     self.authorizations = {}
   
     self.voting = SchulzeVoting.SchulzeVoting()

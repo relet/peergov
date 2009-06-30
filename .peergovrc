@@ -2,4 +2,5 @@
 basedir: .,
 authdir: ./auth,
 datadir: ./data,
+userfpr: 02CC1BC4768A311818FDBF1BD3C949627F03D730,
 }
