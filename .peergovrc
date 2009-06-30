@@ -1,0 +1,5 @@
+{
+basedir: .,
+authdir: ./auth,
+datadir: ./data,
+}

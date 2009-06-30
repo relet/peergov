@@ -10,10 +10,6 @@ import SchulzeVoting
 from datamanager import Authority, Topic, DataManager
 from cryptutils import createVote
 
-
-basedir   = "."
-datadir   = basedir+"/data" #make this path absolute; read from config file
-
 #where do we put this one and all the rest of the crypto context?
 def desigsum(sigsum):
   str = "" 
@@ -32,6 +28,13 @@ def desigsum(sigsum):
   return str
 
 class Peergov:
+  def loadAuth(self, xdir, xfile):
+    data = yaml.load(open(xdir+"/"+xfile, "r"))
+    #TODO: verify authorization signature
+    #TODO: verify that authorization is actually issued for this user
+    for auth in data.keys():
+      self.authorizations[auth]=data[auth]
+
   def loadTopic(self, xdir):
     topicsig = xdir + "/" + ".topic.yaml"
     if os.path.exists(topicsig):
@@ -91,7 +94,7 @@ class Peergov:
             return
           authy.seek(0,0)
           auth = yaml.load(authy.read())
-          xcomp = xdir[len(datadir)+1:]
+          xcomp = xdir[len(self.datadir)+1:]
           if auth[1] != xcomp:
             print auth[1], xcomp
             print("Authorization in %s not valid for topic %s." % (file, xcomp))
@@ -136,29 +139,45 @@ class Peergov:
     self.gui = PeerGui(self, self.manager)
     self.gui.mainloop()
     
+  def ensureDirExists(self, xdir):
+    if not os.path.exists(xdir):
+      try: 
+        print("Directory %s not found. Attempting to create." % str(xdir))
+        os.mkdir(xdir)
+      except:
+        print("Failed creating directory. Aborting.")
+        sys.exit(1)
+    if not os.path.isdir(xdir):
+      print("Path %s is not a directory. Aborting." % str(xdir))
+      sys.exit(1)
+  
+    
   def __init__(self):
+    self.config = yaml.load(open(".peergovrc","r").read())
+    self.basedir = self.config['basedir']
+    self.datadir = self.config['datadir']
+    self.authdir = self.config['authdir']
+    self.authorizations = {}
+  
     self.voting = SchulzeVoting.SchulzeVoting()
     self.manager = DataManager()
-    self.manager.datadir = datadir
+    self.manager.datadir = self.datadir
     self.cctx   = pyme.core.Context() #crypto context
   
-    if not os.path.exists(datadir):
-      try: 
-        print("Directory %s not found. Attempting to create." % str(datadir))
-        os.mkdir(datadir)
-      except:
-        print("Failed creating data directory. Aborting.")
-        sys.exit(1)
-    if not os.path.isdir(datadir):
-      print("Path %s is not a directory. Aborting." % str(datadir))
-      sys.exit(1)
+    self.ensureDirExists(self.basedir)
+    self.ensureDirExists(self.datadir)
+    self.ensureDirExists(self.authdir)
     
-    for root, dirs, files in os.walk(datadir):
+    for root, dirs, files in os.walk(self.datadir):
       for dir in dirs:
         self.loadTopic(root + "/" + dir)
       for file in files:
         self.loadData(root, file)
-    
+
+    for root, dirs, files in os.walk(self.authdir):
+      for file in files:
+        self.loadAuth(root, file)
+
     self.initGui()
 
 class PeerGui:
@@ -215,12 +234,12 @@ class PeerGui:
     self.list1.Bind(wx.EVT_LIST_ITEM_SELECTED, self.OnProposalSelected, self.list1)
     self.list2.Bind(wx.EVT_LIST_ITEM_SELECTED, self.OnProposalSelected, self.list2)
 
-    buttonvote = wx.Button(list2panel, wx.ID_ANY, u"Submit vote")
-    buttonvote.Bind(wx.EVT_BUTTON, self.submitVote)
+    self.buttonvote = wx.Button(list2panel, wx.ID_ANY, u"Submit vote")
+    self.buttonvote.Bind(wx.EVT_BUTTON, self.submitVote)
     
     box4 = wx.BoxSizer(wx.VERTICAL)
     box4.Add(self.list2, 12, wx.EXPAND)
-    box4.Add(buttonvote, 1, wx.EXPAND)
+    box4.Add(self.buttonvote, 1, wx.EXPAND)
     list2panel.SetSizer(box4)
 
     box3 = wx.BoxSizer(wx.HORIZONTAL)
@@ -264,7 +283,7 @@ class PeerGui:
       for tid, topic in authority.topics.iteritems():
         parent = child
         if not collapsed:
-          dirs = tid[len(datadir)+1:].split("/")[1:]
+          dirs = tid[len(self.datadir)+1:].split("/")[1:]
           for xdir in dirs:
             parent = self.tree.AppendItem(parent, xdir)
             self.tree.SetItemHasChildren(parent)
@@ -285,6 +304,10 @@ class PeerGui:
     return html   
     
   def displayTopicInfo(self, tpath):
+    authorized = False
+    for path in self.peergov.authorizations.keys():
+      if path in tpath:
+        authorized = True
     authority, topic = self.manager.getTopicByPath(tpath)
     self.currentTopic = topic
     voting = self.peergov.voting
@@ -292,7 +315,12 @@ class PeerGui:
     if authority and topic:
       self.text.SetPage(self.genHTML(topic))
       item = wx.ListItem()
-      item.SetText("--- Any (other) option ---")
+      if authorized:
+        item.SetText("--- Any (other) option ---")
+        self.buttonvote.Enable(True)
+      else:
+        item.SetText("NO AUTHORIZATION TO VOTE")
+        self.buttonvote.Enable(False)
       item.SetData(-1)
       self.list2.InsertItem(item)
       for i,proposal in enumerate(topic.proposals):
