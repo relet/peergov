@@ -34,5 +34,8 @@ class Topic:
   proposals   = [] #Proposal
   votes       = [] #Vote
   
-  def addVote(vote):
-    pass
+  def addVote(self, vote):
+    for comp in self.votes[:]:
+      if comp['id']==vote['id']:
+        self.votes.remove(comp)
+    self.votes.append(vote)

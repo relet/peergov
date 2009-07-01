@@ -37,14 +37,14 @@ def createVote (voter, topicid, authorization, vote):
   #   print ("No such key found.")
   #   sys.exit(1)
 
-  topic = {}
-  topic['type']    = 'vote'
-  topic['path']    = topicid
-  topic['voterid'] = voterid
-  topic['id']      = md5(topic['path']+topic['voterid']).hexdigest()
-  topic['vote']    = vote # a list of proposalids
+  cont = {} #it's a container. I'm running out of descriptive variable names.
+  cont['type']    = 'vote'
+  cont['path']    = topicid
+  cont['voterid'] = voterid
+  cont['id']      = md5(cont['path']+cont['voterid']).hexdigest()
+  cont['vote']    = vote # a list of proposalids
 
-  voteblob = pyme.core.Data(yaml.dump(topic))
+  voteblob = pyme.core.Data(yaml.dump(cont))
 
   #export voter key
   keyblob = pyme.core.Data()
@@ -63,4 +63,4 @@ def createVote (voter, topicid, authorization, vote):
   votesig.seek(0,0)
   data['sig'] = votesig.read()
 
-  return data
+  return cont, data

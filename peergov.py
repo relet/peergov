@@ -143,7 +143,6 @@ class Peergov:
               topic.proposals.append(prop)
               return
             elif prop['type']=='vote' and authorized: 
-              print prop
               topic.votes.append(prop)
               return
           elif key_missing:
@@ -414,10 +413,11 @@ class PeerGui:
         vote.append("-any-")
       else:
         vote.append(self.currentTopic.proposals[ppos]['id'])
-    voteblob = createVote(voter, topicid, authorization, vote)
+    votedata, voteblob = createVote(voter, topicid, authorization, vote)
     votefile = open(self.manager.datadir + "/" + topicid + "/" + voter, "w")
     votefile.write(yaml.dump(voteblob))
     votefile.close()
+    self.currentTopic.addVote(votedata)
 
   def changePreference(self, event):
     label = event.GetEventObject().GetLabel()
