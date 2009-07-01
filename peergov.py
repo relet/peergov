@@ -267,7 +267,7 @@ class PeerGui:
     box3.Add(buttonpanel2, 1, wx.CENTER)
     panel1.SetSizer(box3)
 
-    self.results = wx.ListCtrl(notebook) #make this a html or canvas, showing the results in beautiful
+    self.results = wx.html.HtmlWindow(notebook) #make this a html or canvas, showing the results in beautiful
 
     notebook.AddPage(panel1, "Ballot")
     notebook.AddPage(self.results, "Results")
@@ -315,12 +315,22 @@ class PeerGui:
     self.list2.DeleteAllItems()
     pass
     
-  def genHTML(self, topic, proposal=None):
+  def genTopicHTML(self, topic, proposal=None):
     html = u"<p><b>%s</b></p><p>%s</p>" % (topic.data['title'], topic.data['short'])
     html += "<hr />"
     if proposal:
       html += "<p><b>%s</b></p><p>%s</p>" % (proposal['title'], proposal['short'])
     return html   
+    
+  def genResultHTML(self, result, numvotes):
+    html = u"<p><ol>"
+    for rank in result:
+      html += "<li>"
+      for item in rank:
+        html += self.currentTopic.getProposalById(item)['title']+";"
+      html += "</li>\n"
+    html += "</ol></p>"
+    return html
     
   def displayTopicInfo(self, tpath):
     self.peergov.currentAuthorization = None
@@ -333,19 +343,16 @@ class PeerGui:
     voting = self.peergov.voting
     voting.reset()
     if authority and topic:
-      self.text.SetPage(self.genHTML(topic))
+      self.text.SetPage(self.genTopicHTML(topic))
       
       vote = (self.peergov.user in topic.votes) and topic.votes[self.peergov.user]['vote']
 
-      item = wx.ListItem()      
-      item.SetData(-1)
       if not self.peergov.currentAuthorization:
+        item = wx.ListItem()      
+        item.SetData(-1)
         item.SetText("NO AUTHORIZATION TO VOTE")
         self.buttonvote.Enable(False)
-      else:
-        self.buttonvote.Enable(True)
-        item.SetText("--- Any (other) option ---")
-      self.list2.InsertItem(item)
+        self.list2.InsertItem(item)
 
       for i,proposal in enumerate(topic.proposals):
         item = wx.ListItem()
@@ -364,7 +371,10 @@ class PeerGui:
         #TODO: eliminate invalid choices from ballot
         #TODO: eliminate duplicate userids from ballot
         voting.addVote(topic.votes[userfpr]['vote'])
-      print ("DEBUG - Results for this topic: %s" % (str(voting.getRanks())))
+      
+      #print ("DEBUG - Results for this topic: %s" % (str(voting.getRanks())))
+      self.results.SetPage(self.genResultHTML(voting.getRanks(), voting.countVotes()))
+      
     else:
       self.resetRightPanel()
   
@@ -375,7 +385,7 @@ class PeerGui:
       proposal = self.currentTopic.proposals[index]
     else:
       proposal = None
-    self.text.SetPage(self.genHTML(self.currentTopic, proposal))
+    self.text.SetPage(self.genTopicHTML(self.currentTopic, proposal))
   
   def OnTreeSelectionChanged(self, treeevent):
     item = self.tree.GetSelection()
@@ -413,8 +423,8 @@ class PeerGui:
       return 1
     return -1
   def listSortVote(self, i1, i2):
-    label1 = (i1 == -1) and '-any-' or self.currentTopic.proposals[i1]['id']
-    label2 = (i2 == -1) and '-any-' or self.currentTopic.proposals[i2]['id']
+    label1 = self.currentTopic.proposals[i1]['id']
+    label2 = self.currentTopic.proposals[i2]['id']
     if self.currentVote.index(label1) > self.currentVote.index(label2):
       return 1
     else:
@@ -428,10 +438,7 @@ class PeerGui:
     for index in range(self.list2.GetItemCount()):
       #item = self.list2.GetItem(index)
       ppos = self.list2.GetItemData(index)
-      if ppos == -1:
-        vote.append("-any-")
-      else:
-        vote.append(self.currentTopic.proposals[ppos]['id'])
+      vote.append(self.currentTopic.proposals[ppos]['id'])
     votedata, voteblob = createVote(voter, topicid, authorization, vote)
     votefile = open(self.manager.datadir + "/" + topicid + "/" + voter, "w")
     votefile.write(yaml.dump(voteblob))
@@ -449,8 +456,6 @@ class PeerGui:
     elif label == u"\u2190": # remove
       index = self.list2.GetFirstSelected()
       item  = self.list2.GetItem(index)
-      if self.list2.GetItemData(index) == -1: # skip the any-item placeholder
-        return
       if item != None:
         self.list1.InsertItem(item)
         self.list2.DeleteItem(index)

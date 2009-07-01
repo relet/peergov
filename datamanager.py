@@ -34,5 +34,11 @@ class Topic:
   proposals   = [] #Proposal
   votes       = {} #user fpr -> vote data struct
   
+  def getProposalById(self, id):
+    for comp in self.proposals:
+      if comp['id']==id:
+        return comp
+    return None
+  
   def addVote(self, vote):
     self.votes[vote['voterid']]=vote
