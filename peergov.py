@@ -334,20 +334,32 @@ class PeerGui:
     voting.reset()
     if authority and topic:
       self.text.SetPage(self.genHTML(topic))
-      item = wx.ListItem()
-      if self.peergov.currentAuthorization:
-        item.SetText("--- Any (other) option ---")
-        self.buttonvote.Enable(True)
-      else:
+      
+      vote = (self.peergov.user in topic.votes) and topic.votes[self.peergov.user]['vote']
+
+      item = wx.ListItem()      
+      item.SetData(-1)
+      if not self.peergov.currentAuthorization:
         item.SetText("NO AUTHORIZATION TO VOTE")
         self.buttonvote.Enable(False)
-      item.SetData(-1)
+      else:
+        self.buttonvote.Enable(True)
+        item.SetText("--- Any (other) option ---")
       self.list2.InsertItem(item)
+
       for i,proposal in enumerate(topic.proposals):
         item = wx.ListItem()
         item.SetText(proposal['title'])
         item.SetData(i)
-        self.list1.InsertItem(item)
+        if vote and proposal['id'] in vote:
+          self.list2.InsertItem(item)
+        else:
+          self.list1.InsertItem(item)
+          
+      if vote:
+        self.currentVote = vote
+        self.list2.SortItems(self.listSortVote)
+
       for userfpr in topic.votes.keys():
         #TODO: eliminate invalid choices from ballot
         #TODO: eliminate duplicate userids from ballot
@@ -400,6 +412,13 @@ class PeerGui:
     if (i1 == self.sortingItem) and (i2 == self.sortingItem2):
       return 1
     return -1
+  def listSortVote(self, i1, i2):
+    label1 = (i1 == -1) and '-any-' or self.currentTopic.proposals[i1]['id']
+    label2 = (i2 == -1) and '-any-' or self.currentTopic.proposals[i2]['id']
+    if self.currentVote.index(label1) > self.currentVote.index(label2):
+      return 1
+    else:
+      return -1
     
   def submitVote(self, event):
     voter         = self.peergov.user # fingerprint
