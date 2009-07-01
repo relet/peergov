@@ -63,4 +63,4 @@ def createVote (voter, topicid, authorization, vote):
   votesig.seek(0,0)
   data['sig'] = votesig.read()
 
-  return yaml.dump(data)
+  return data

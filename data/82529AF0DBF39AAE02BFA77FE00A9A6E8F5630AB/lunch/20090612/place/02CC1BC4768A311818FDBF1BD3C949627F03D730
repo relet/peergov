@@ -1,0 +1,98 @@
+{auth: '-----BEGIN PGP SIGNED MESSAGE-----
+
+    Hash: SHA1
+
+
+    [02CC1BC4768A311818FDBF1BD3C949627F03D730, 82529AF0DBF39AAE02BFA77FE00A9A6E8F5630AB/lunch]
+
+    -----BEGIN PGP SIGNATURE-----
+
+    Version: GnuPG v1.4.9 (GNU/Linux)
+
+
+    iQIcBAEBAgAGBQJKSiWqAAoJEOAKmm6PVjCrzLgP/AynhqgGezgF7JKbAa22XkWI
+
+    gJpUFSsWA3J9h5PJX2K6HqL/nC3Qr6DJT8VR8n/hIU0swHaIYkQ+SFJulbDFHvSK
+
+    KvdRABboL1DTSLqD/F9YdPlZw+A6W4i0UhAkOpecFyw2cNnZ7ENwrDuAMbNUgt4E
+
+    Hgy7f9E3VASsjYiOXOy6C4+jaXIl6UDy/6jwZ98JN8nIU3L1lOgjWfemufK9bMjD
+
+    3LcwGVsj9jQ+K+KLMdqprQAyD8LG+RzfX/8Wl32ylKgLKY1j68RriGn1I649n3aN
+
+    tfNazWhvf3kuLbVbRGZZUuizVJ+7UZ8dhP5E1kB2eUPEmkgwoC/ZZIhoqNg28qhR
+
+    cOGQxj/mXI1aq37cv/l2hf3y8iPoNz2R3kVHYAXxTAb30N+yi5BYRYs0SxQ6JrkW
+
+    hl5lFkEGKfonafkBiIUOoUH3eNJKY6Kx3m+h4c4KUIHw8abLHq9C5hZN2hhyi6Af
+
+    Cfoft3LYgg1LlKBnfiAC+tfH4vFoX2I3fQWpZs/cNXQB9SXBr2hKFOQBqZlulHbg
+
+    xMlrwW7J3pYm1vfTlsuGJAxF5og5lUF74Zcezh5BaYXY1k1GIiauZt99jjrgStKX
+
+    m2crF9T2QC8BOHXAfewU4Fye0J0ULuvXF+Vp9TQfRvJFMuudhsKfdPE8WLpysjpi
+
+    nTWCh6fsUnoC+2G1Srs6
+
+    =bQg/
+
+    -----END PGP SIGNATURE-----
+
+    ', key: '-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+    Version: GnuPG v1.4.9 (GNU/Linux)
+
+
+    mI0ESkD3sgEEANzAjCRuGLNJvMkLgnnfbNp6a2ZpVy6CF2vuTPddzXvmbu3/f48D
+
+    V8EAao50DHkzUZjIPOTyD5x70dypf20YqwD4//j97Tyo4OOxa9U9xmU3EV56oKXO
+
+    LA3OauoO91j5OQleGjPTVRGKCesyQvOHS5HeKD+4IT5fejRUgQ63SGDdABEBAAG0
+
+    B1ZvdGVyIDGIvAQTAQIAJgUCSkD3sgIbAwUJAeEzgAYLCQgHAwIEFQIIAwQWAgMB
+
+    Ah4BAheAAAoJENPJSWJ/A9cwqcMD/jjrqGo5Rbt7+zflHu/I8LgaOk29RntL0A5r
+
+    2XgcFAmw+k3M9ODJulmwnrmMFwDZQFEPonyfeghUUohfhxCNIIRYdlWJmGciQtSB
+
+    xQqUFBQewVRT8OifI7YX+AHfi8jmrjEvKtb2myE1JrJFbgJ5TNFdsTnYfMQb9NRz
+
+    CWPaXFNo
+
+    =J8Mx
+
+    -----END PGP PUBLIC KEY BLOCK-----
+
+    ', sig: '-----BEGIN PGP SIGNED MESSAGE-----
+
+    Hash: SHA1
+
+
+    id: b418fc2e99847758e322ac118cbd08f5
+
+    path: 82529AF0DBF39AAE02BFA77FE00A9A6E8F5630AB/lunch/20090612/place
+
+    type: vote
+
+    vote: [04d61148ad85246b2886aaa6468b3a43, -any-]
+
+    voterid: 02CC1BC4768A311818FDBF1BD3C949627F03D730
+
+    -----BEGIN PGP SIGNATURE-----
+
+    Version: GnuPG v1.4.9 (GNU/Linux)
+
+
+    iJwEAQECAAYFAkpLFUoACgkQ08lJYn8D1zAkAgP/aou+jRTkLfgjNkfGks0n2PZa
+
+    wgn26jWh7qxRA8UOdLv7HLrzUWS5E93j3SEn1RDj+YnFI5imGHIC+TcLxeAwAD1l
+
+    3mgTOAkimOkfhR0zEBdNr/efeCWpK84m+FjrKKfvchDyMI50gnLxLEETBKiriq7f
+
+    uxAFvYY2qEUFk+297L4=
+
+    =cA0R
+
+    -----END PGP SIGNATURE-----
+
+    '}

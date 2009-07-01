@@ -72,7 +72,8 @@ class Peergov:
               auth = self.manager.getAuthority(sig.fpr)
               auth.name = sigkey.uids[0].uid
               auth.fpr = sig.fpr
-              to = auth.topics[xdir]=Topic()
+              pdir = xdir[len(self.datadir)+1:]
+              to = auth.topics[pdir] = Topic()
               to.data      = topic
               to.signature = data['sig']
             else:
@@ -85,10 +86,11 @@ class Peergov:
       #print("No topic signature found for %s" % str(xdir)) 
       pass
 
-  def loadData(self, xdir, file): #proposals and votes?
+  def loadData(self, xdir, file): #proposals and votes
     if file==".topic.yaml":
       return
-    authority, topic = self.manager.getTopicByPath(xdir)
+    pdir = xdir[len(self.datadir)+1:]
+    authority, topic = self.manager.getTopicByPath(pdir)
     if authority and topic:
       yamldata = open(xdir + "/" + file, "r")
       data = yaml.load(yamldata.read())
@@ -109,7 +111,7 @@ class Peergov:
           authy.seek(0,0)
           auth = yaml.load(authy.read())
           xcomp = xdir[len(self.datadir)+1:]
-          if auth[1] != xcomp:
+          if not auth[1] in xcomp:
             print auth[1], xcomp
             print("Authorization in %s not valid for topic %s." % (file, xcomp))
             return
@@ -141,6 +143,7 @@ class Peergov:
               topic.proposals.append(prop)
               return
             elif prop['type']=='vote' and authorized: 
+              print prop
               topic.votes.append(prop)
               return
           elif key_missing:
@@ -173,6 +176,7 @@ class Peergov:
     self.authdir = self.config['authdir']
     self.user    = self.config['userfpr']
     self.authorizations = {}
+    self.currentAuthorization = None #authorization to vote on currentTopic
   
     self.voting = SchulzeVoting.SchulzeVoting()
     self.manager = DataManager()
@@ -278,6 +282,7 @@ class PeerGui:
     box1.Add(box2, 2, wx.EXPAND)
 
     self.currentTopic = None
+    self.currentTopicId = None
 
     self.frame.SetSizer(box1)
     self.frame.Layout()
@@ -298,7 +303,7 @@ class PeerGui:
       for tid, topic in authority.topics.iteritems():
         parent = child
         if not collapsed:
-          dirs = tid[len(self.datadir)+1:].split("/")[1:]
+          dirs = tid.split("/")[1:]
           for xdir in dirs:
             parent = self.tree.AppendItem(parent, xdir)
             self.tree.SetItemHasChildren(parent)
@@ -319,18 +324,19 @@ class PeerGui:
     return html   
     
   def displayTopicInfo(self, tpath):
-    authorized = False
+    self.peergov.currentAuthorization = None
     for path in self.peergov.authorizations.keys():
       if path in tpath:
-        authorized = True
+        self.peergov.currentAuthorization = self.peergov.authorizations[path]
     authority, topic = self.manager.getTopicByPath(tpath)
     self.currentTopic = topic
+    self.currentTopicId = tpath
     voting = self.peergov.voting
     voting.reset()
     if authority and topic:
       self.text.SetPage(self.genHTML(topic))
       item = wx.ListItem()
-      if authorized:
+      if self.peergov.currentAuthorization:
         item.SetText("--- Any (other) option ---")
         self.buttonvote.Enable(True)
       else:
@@ -345,6 +351,7 @@ class PeerGui:
         self.list1.InsertItem(item)
       for i,vote in enumerate(topic.votes):
         #TODO: eliminate invalid choices from ballot
+        #TODO: eliminate duplicate  userids from ballot
         voting.addVote(vote['vote'])
       print ("DEBUG - Results for this topic: %s" % (str(voting.getRanks())))
     else:
@@ -396,15 +403,21 @@ class PeerGui:
     return -1
     
   def submitVote(self, event):
-    print(str(event))
-    # voter = TODO: read from configuration file
-    topicid = self.currentTopic
-    # authorization = TODO: read from authorization file/folder
+    voter         = self.peergov.user # fingerprint
+    topicid       = self.currentTopicId # topicid
+    authorization = self.peergov.currentAuthorization #full authorization blob
     vote = []
-    #for item in list2:
-    #  proposalId = ???
-    #  vote.append(proposalId)
-    # createVote(voter, topicid, authorization, vote):
+    for index in range(self.list2.GetItemCount()):
+      #item = self.list2.GetItem(index)
+      ppos = self.list2.GetItemData(index)
+      if ppos == -1:
+        vote.append("-any-")
+      else:
+        vote.append(self.currentTopic.proposals[ppos]['id'])
+    voteblob = createVote(voter, topicid, authorization, vote)
+    votefile = open(self.manager.datadir + "/" + topicid + "/" + voter, "w")
+    votefile.write(yaml.dump(voteblob))
+    votefile.close()
 
   def changePreference(self, event):
     label = event.GetEventObject().GetLabel()

@@ -15,7 +15,7 @@ class DataManager:
     return self.authorities[fpr]
 
   def getTopicByPath(self, topicpath): 
-    dirs = topicpath[len(self.datadir)+1:].split("/") 
+    dirs = topicpath.split("/") 
     authority = self.getAuthority(dirs[0])
     if authority:
       if topicpath in authority.topics:
@@ -33,4 +33,6 @@ class Topic:
   signature   = None
   proposals   = [] #Proposal
   votes       = [] #Vote
-  #results = 
+  
+  def addVote(vote):
+    pass
