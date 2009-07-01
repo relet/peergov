@@ -351,8 +351,8 @@ class PeerGui:
         self.list1.InsertItem(item)
       for i,vote in enumerate(topic.votes):
         #TODO: eliminate invalid choices from ballot
-        #TODO: eliminate duplicate  userids from ballot
-        voting.addVote(vote['vote'])
+        #TODO: eliminate duplicate userids from ballot
+        voting.addVote(vote['vote']) # I just love this line.
       print ("DEBUG - Results for this topic: %s" % (str(voting.getRanks())))
     else:
       self.resetRightPanel()
