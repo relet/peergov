@@ -32,10 +32,7 @@ class Topic:
   data        = None
   signature   = None
   proposals   = [] #Proposal
-  votes       = [] #Vote
+  votes       = {} #user fpr -> vote data struct
   
   def addVote(self, vote):
-    for comp in self.votes[:]:
-      if comp['id']==vote['id']:
-        self.votes.remove(comp)
-    self.votes.append(vote)
+    self.votes[vote['voterid']]=vote

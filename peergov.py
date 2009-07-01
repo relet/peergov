@@ -143,7 +143,7 @@ class Peergov:
               topic.proposals.append(prop)
               return
             elif prop['type']=='vote' and authorized: 
-              topic.votes.append(prop)
+              topic.addVote(prop)
               return
           elif key_missing:
             print("Signing key not available/imported for user %s from file %s." % (sig.fpr,file))
@@ -348,10 +348,10 @@ class PeerGui:
         item.SetText(proposal['title'])
         item.SetData(i)
         self.list1.InsertItem(item)
-      for i,vote in enumerate(topic.votes):
+      for userfpr in topic.votes.keys():
         #TODO: eliminate invalid choices from ballot
         #TODO: eliminate duplicate userids from ballot
-        voting.addVote(vote['vote']) # I just love this line.
+        voting.addVote(topic.votes[userfpr]['vote'])
       print ("DEBUG - Results for this topic: %s" % (str(voting.getRanks())))
     else:
       self.resetRightPanel()
