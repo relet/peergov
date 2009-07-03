@@ -52,7 +52,7 @@ class Peergov:
         print ("Failed to verify authorization %s" % (str(xfile)))
 
   def loadTopic(self, xdir):
-    topicsig = xdir + "/" + ".topic.yaml"
+    topicsig = xdir + "/" + ".topic"
     if os.path.exists(topicsig):
       #try:
         yamldata = open(topicsig, "r")
@@ -91,7 +91,7 @@ class Peergov:
       pass
 
   def loadData(self, xdir, file): #proposals and votes
-    if file==".topic.yaml":
+    if file==".topic":
       return
     pdir = xdir[len(self.datadir)+1:]
     with self.manager.authorities_lock:
@@ -339,7 +339,11 @@ class PeerGui(threading.Thread):
     for rank in result:
       html += "<li>"
       for item in rank:
-        html += self.currentTopic.getProposalById(item)['title']+";"
+        proposal = self.currentTopic.getProposalById(item)
+        if proposal:
+          html += proposal['title']+";"
+        else:
+          html += "Unknown proposal with id %s;" % (item)
       html += "</li>\n"
     html += "</ol></p>"
     if numvotes:
@@ -508,4 +512,4 @@ class PeerGui(threading.Thread):
     self.app.MainLoop()
 
 peergov = Peergov(sys.argv[1:])
-#TODO: initiate some servents, once the data has been loaded
+

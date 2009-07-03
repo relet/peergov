@@ -3,7 +3,7 @@
 import sys
 import socket
 import threading
-#import ssl
+import traceback
 
 class Servent:
   PROTOCOL_IDENTIFIER = "peergov_p001"
@@ -48,7 +48,6 @@ class Servent:
       s = socket.socket(addr[0], addr[1])
       #s = ssl.wrap_socket(s, server_side = True, cert_reqs = ssl.CERT_NONE)
     except Exception,e:
-      print(e)
       print("Failed to initialize server socket at %s." % addr[4][0])
       return
     try:
@@ -57,21 +56,23 @@ class Servent:
       st = ServentThread(s, self)
       st.start()
     except Exception, e:
-      print(e)
       print("Failed to open server socket at %s." % addr[4][0])
       s.close()
     
   def connectTo(self, server):
     try:
       s = socket.socket(server[0], server[1])
-      #s = ssl.wrap_socket(s, cert_reqs=ssl.CERT_NONE)
-      conn, addr = s.connect(server[4][:2])
-      sch = ServentConnectionHandler(s, addr, self)
-      sch.start()
+      try:
+        #s = ssl.wrap_socket(s, cert_reqs=ssl.CERT_NONE)
+        print "--- %s --- %s ---" % (str(s), str(server))
+        conn, addr = s.connect(server[4][:2])
+        sch = ServentConnectionHandler(s, addr, self)
+        sch.start()
+      except Exception, e:
+        print("Failed to initialize socket at %s. %s" % (str(server), str(e)))
+        s.close()
     except Exception, e:
-      print(e)
-      print("Failed to open socket at %s." % str(server))
-      s.close()
+      print("Failed to open socket at %s. %s" % (str(server), str(e)))
 
   def initSocket(self, port):
     try:
@@ -88,7 +89,6 @@ class Servent:
       if addrv6:
         self.runSocketThread(addrv6)
     except Exception,e:
-      print(e)
       print("Failed to identify available address families. Exiting.")
       sys.exit(1)
 
@@ -139,7 +139,7 @@ class ServentConnectionHandler(threading.Thread):
         if words[0]=="HELO":
           if words[1]==self.servent.PROTOCOL_IDENTIFIER:
             self.protocol_verified = True
-      except Exception, e:
+      except Exception, e:     
         print("Failed to parse incoming data. %s" % str(e))
       if not self.protocol_verified:
         print("Protocol mismatch. Terminating connection.")
@@ -147,11 +147,14 @@ class ServentConnectionHandler(threading.Thread):
 
   def run(self):
     self.conn.send("HELO "+self.servent.PROTOCOL_IDENTIFIER+"\n")
-    while not self.stopped:
-      data = self.conn.recv(1024)
-      if not data: 
-        break
-      self.parseMessage(data)  
+    try:
+      while not self.stopped:
+        data = self.conn.recv(1024)
+        if not data: 
+          break
+        self.parseMessage(data)  
+    except Exception, e:
+      print("Incoming connection reset: %s" % str(e))
     self.stop()
 
   def send(self, data):

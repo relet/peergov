@@ -11,7 +11,10 @@ class PeerManager:
     self.servent = Servent()
     for peer in argv:
       try:
-        host, sport = argv.split(":")
-        port = int(sport)
-        self.servent.connectTo((host, port)) #or n-tuple?
+        hp = peer.split(":") #host:port for ipv4 - what's the common notation for ipv6?
+        port = hp[1:2] and int(hp[1]) or 4991
+        self.servent.connectTo((2,1,6,'',(hp[0], port))) 
         pass
+      except Exception,e:
+        print str(e)
+

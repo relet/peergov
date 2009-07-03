@@ -22,9 +22,9 @@ topic['type']='topic'
 topic['path']='futterbot/lunch/20090612/place'
 topic['title']='Where?'
 #topic['id']=md5(topic['path']+topic['title']).hexdigest()
-topic['short']='Where should we go for lunch on Friday, 2009-06-12?'
+topic['short']='Where should we go for lunch on Tuesday, 2009-07-14?'
 topic['text']=None
-topic['expired']=str(datetime(2009,6,12,23,59))
+topic['expired']=str(datetime(2009,7,14,23,59))
 topic['author']='futterbot'
 
 blob = pyme.core.Data(yaml.dump(topic))
