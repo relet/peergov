@@ -10,5 +10,8 @@ class PeerManager:
       return
     self.servent = Servent()
     for peer in argv:
-      #try to connect to peers
-      pass
+      try:
+        host, sport = argv.split(":")
+        port = int(sport)
+        self.servent.connectTo((host, port)) #or n-tuple?
+        pass
