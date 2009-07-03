@@ -5,10 +5,12 @@ import yaml
 import pyme.core
 import pyme.constants.sigsum
 import wx, wx.html
+import threading
+
 import SchulzeVoting
-#import servent # we'll do that later
 from datamanager import Authority, Topic, DataManager
 from cryptutils import createVote
+from peermanager import PeerManager
 
 #where do we put this one and all the rest of the crypto context?
 def desigsum(sigsum):
@@ -69,13 +71,15 @@ class Peergov:
               topic = yaml.load(topicy.read())
               if not topic['type']=='topic': #someone exchanged the files
                 return
-              auth = self.manager.getAuthority(sig.fpr)
-              auth.name = sigkey.uids[0].uid
-              auth.fpr = sig.fpr
-              pdir = xdir[len(self.datadir)+1:]
-              to = auth.topics[pdir] = Topic()
-              to.data      = topic
-              to.signature = data['sig']
+              with self.manager.authorities_lock:
+                auth = self.manager.getAuthority(sig.fpr)
+                auth.name = sigkey.uids[0].uid
+                auth.fpr = sig.fpr
+                pdir = xdir[len(self.datadir)+1:]
+                with auth.topics_lock:
+                  to = auth.topics[pdir] = Topic()
+                  to.data      = topic
+                  to.signature = data['sig']
             else:
               print ("Signature of %s is not VALID - %s." % (str(xdir), desigsum(sig.summary)))
           else:
@@ -90,70 +94,73 @@ class Peergov:
     if file==".topic.yaml":
       return
     pdir = xdir[len(self.datadir)+1:]
-    authority, topic = self.manager.getTopicByPath(pdir)
-    if authority and topic:
-      yamldata = open(xdir + "/" + file, "r")
-      data = yaml.load(yamldata.read())
-      if data:
-        authorized = None
-        if 'key' in data and 'auth' in data: #a key is provided. check key authorization
-          authsig = pyme.core.Data(data['auth'])
-          authy   = pyme.core.Data()
-          if self.cctx.op_verify(authsig, None, authy):
-            print("Vote %s not authorized." % file)
-            return
-          sigs = self.cctx.op_verify_result().signatures
-          sig  = sigs[0]
-          valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
-          if not valid:
-            print("Authorization for vote %s not VALID (%s)." % (file, desigsum(sig.summary)))
-            return
-          authy.seek(0,0)
-          auth = yaml.load(authy.read())
-          xcomp = xdir[len(self.datadir)+1:]
-          if not auth[1] in xcomp:
-            print auth[1], xcomp
-            print("Authorization in %s not valid for topic %s." % (file, xcomp))
-            return
-          authorized = auth[0]
-          try:
-            votekey = self.cctx.get_key(auth[0], 0)
-          except:
-            keydata = pyme.core.Data(data['key'])
-            fail = self.cctx.op_import(keydata)
-            if not fail:
-              result = self.cctx.op_import_result()
-              print ("Key import - %i considered, %i imported, %i unchanged." % (result.considered, result.imported, result.unchanged))
-            else:
-              print ("Failed to import keys.")
-        sig   = pyme.core.Data(data['sig'])
-        propy = pyme.core.Data()
-        if not self.cctx.op_verify(sig, None, propy):
-          sigs = self.cctx.op_verify_result().signatures
-          sig = sigs[0] # we don't support multiple. 
-          key_missing = (sig.summary & pyme.constants.sigsum.KEY_MISSING) > 0
-          valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
-          if valid:
-            if authorized and sig.fpr != authorized:
-              print("Authorization in %s not valid for signing user %s." % (file, sig.fpr))
+    with self.manager.authorities_lock:
+      authority, topic = self.manager.getTopicByPath(pdir)
+      if authority and topic:
+        yamldata = open(xdir + "/" + file, "r")
+        data = yaml.load(yamldata.read())
+        if data:
+          authorized = None
+          if 'key' in data and 'auth' in data: #a key is provided. check key authorization
+            authsig = pyme.core.Data(data['auth'])
+            authy   = pyme.core.Data()
+            if self.cctx.op_verify(authsig, None, authy):
+              print("Vote %s not authorized." % file)
               return
-            propy.seek(0,0)
-            prop = yaml.load(propy.read())
-            if prop['type']=='proposal': 
-              topic.proposals.append(prop)
+            sigs = self.cctx.op_verify_result().signatures
+            sig  = sigs[0]
+            valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
+            if not valid:
+              print("Authorization for vote %s not VALID (%s)." % (file, desigsum(sig.summary)))
               return
-            elif prop['type']=='vote' and authorized: 
-              topic.addVote(prop)
+            authy.seek(0,0)
+            auth = yaml.load(authy.read())
+            xcomp = xdir[len(self.datadir)+1:]
+            if not auth[1] in xcomp:
+              print auth[1], xcomp
+              print("Authorization in %s not valid for topic %s." % (file, xcomp))
               return
+            authorized = auth[0]
+            try:
+              votekey = self.cctx.get_key(auth[0], 0)
+            except:
+              keydata = pyme.core.Data(data['key'])
+              fail = self.cctx.op_import(keydata)
+              if not fail:
+                result = self.cctx.op_import_result()
+                print ("Key import - %i considered, %i imported, %i unchanged." % (result.considered, result.imported, result.unchanged))
+              else:
+                print ("Failed to import keys.")
+          sig   = pyme.core.Data(data['sig'])
+          propy = pyme.core.Data()
+          if not self.cctx.op_verify(sig, None, propy):
+            sigs = self.cctx.op_verify_result().signatures
+            sig = sigs[0] # we don't support multiple. 
+            key_missing = (sig.summary & pyme.constants.sigsum.KEY_MISSING) > 0
+            valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
+            if valid:
+              if authorized and sig.fpr != authorized:
+                print("Authorization in %s not valid for signing user %s." % (file, sig.fpr))
+                return
+              propy.seek(0,0)
+              prop = yaml.load(propy.read())
+              if prop['type']=='proposal': 
+                with topic.proposals_lock:
+                  topic.proposals.append(prop)
+                return
+              elif prop['type']=='vote' and authorized: 
+                with topic.votes_lock:
+                  topic.addVote(prop)
+                return
           elif key_missing:
             print("Signing key not available/imported for user %s from file %s." % (sig.fpr,file))
             return
-    else:
-      print("Skipping data file %s/%s. No authority/topic found." % (xdir, file)) 
+      else:
+        print("Skipping data file %s/%s. No authority/topic found." % (xdir, file)) 
 
   def initGui(self):
     self.gui = PeerGui(self, self.manager)
-    self.gui.mainloop()
+    self.gui.start()
     
   def ensureDirExists(self, xdir):
     if not os.path.exists(xdir):
@@ -168,7 +175,7 @@ class Peergov:
       sys.exit(1)
   
     
-  def __init__(self):
+  def __init__(self, argv):
     self.config = yaml.load(open(".peergovrc","r").read())
     self.basedir = self.config['basedir']
     self.datadir = self.config['datadir']
@@ -197,8 +204,9 @@ class Peergov:
         self.loadAuth(root, file)
 
     self.initGui()
+    self.peermanager = PeerManager(argv)
 
-class PeerGui:
+class PeerGui(threading.Thread):
   def __init__(self, peergov, manager):
     self.peergov = peergov
     self.manager = manager
@@ -288,26 +296,30 @@ class PeerGui:
 
     self.frame.Show(True)
 
+    threading.Thread.__init__(self)
+
   def resetTree(self, collapsed=True):
     self.tree.DeleteChildren(self.root)
     self.initTree(collapsed)
 
   def initTree(self, collapsed=True):
-    for fpr, authority in self.manager.authorities.iteritems():
-      if not authority.name:
-        continue
-      child = self.tree.AppendItem(self.root, authority.name)
-      self.tree.SetItemData(child, wx.TreeItemData(authority.fpr))
-      self.tree.SetItemHasChildren(child)
-      for tid, topic in authority.topics.iteritems():
-        parent = child
-        if not collapsed:
-          dirs = tid.split("/")[1:]
-          for xdir in dirs:
-            parent = self.tree.AppendItem(parent, xdir)
-            self.tree.SetItemHasChildren(parent)
-        tchild = self.tree.AppendItem(parent, topic.data['title'])
-        self.tree.SetItemData(tchild, wx.TreeItemData(tid))
+    with self.manager.authorities_lock:
+      for fpr, authority in self.manager.authorities.iteritems():
+        if not authority.name:
+          continue
+        child = self.tree.AppendItem(self.root, authority.name)
+        self.tree.SetItemData(child, wx.TreeItemData(authority.fpr))
+        self.tree.SetItemHasChildren(child)
+        with authority.topics_lock:
+          for tid, topic in authority.topics.iteritems():
+            parent = child
+            if not collapsed:
+              dirs = tid.split("/")[1:]
+              for xdir in dirs:
+                parent = self.tree.AppendItem(parent, xdir)
+                self.tree.SetItemHasChildren(parent)
+            tchild = self.tree.AppendItem(parent, topic.data['title'])
+            self.tree.SetItemData(tchild, wx.TreeItemData(tid))
   
   def resetRightPanel(self):
     self.text.SetPage("")
@@ -330,53 +342,58 @@ class PeerGui:
         html += self.currentTopic.getProposalById(item)['title']+";"
       html += "</li>\n"
     html += "</ol></p>"
+    if numvotes:
+      html+= "<p>Valid votes processed: %i</p>" % numvotes
     return html
     
   def displayTopicInfo(self, tpath):
+    self.resetRightPanel()
     self.peergov.currentAuthorization = None
     for path in self.peergov.authorizations.keys():
       if path in tpath:
         self.peergov.currentAuthorization = self.peergov.authorizations[path]
-    authority, topic = self.manager.getTopicByPath(tpath)
-    self.currentTopic = topic
-    self.currentTopicId = tpath
-    voting = self.peergov.voting
-    voting.reset()
-    if authority and topic:
-      self.text.SetPage(self.genTopicHTML(topic))
-      
-      vote = (self.peergov.user in topic.votes) and topic.votes[self.peergov.user]['vote']
+    with self.manager.authorities_lock:
+      authority, topic = self.manager.getTopicByPath(tpath)
+      self.currentTopic = topic
+      self.currentTopicId = tpath
+      voting = self.peergov.voting
+      voting.reset()
+      if authority and topic:
+        with topic.votes_lock:
+          with topic.proposals_lock:
+            self.text.SetPage(self.genTopicHTML(topic))
+            vote = (self.peergov.user in topic.votes) and topic.votes[self.peergov.user]['vote']
 
-      if not self.peergov.currentAuthorization:
-        item = wx.ListItem()      
-        item.SetData(-1)
-        item.SetText("NO AUTHORIZATION TO VOTE")
-        self.buttonvote.Enable(False)
-        self.list2.InsertItem(item)
+            if not self.peergov.currentAuthorization:
+              item = wx.ListItem()      
+              item.SetData(-1)
+              item.SetText("NO AUTHORIZATION TO VOTE")
+              self.buttonvote.Enable(False)
+              self.list2.InsertItem(item)
 
-      for i,proposal in enumerate(topic.proposals):
-        item = wx.ListItem()
-        item.SetText(proposal['title'])
-        item.SetData(i)
-        if vote and proposal['id'] in vote:
-          self.list2.InsertItem(item)
-        else:
-          self.list1.InsertItem(item)
+            for i,proposal in enumerate(topic.proposals):
+              item = wx.ListItem()
+              item.SetText(proposal['title'])
+              item.SetData(i)
+              if vote and proposal['id'] in vote:
+                self.list2.InsertItem(item)
+              else:
+                self.list1.InsertItem(item)
           
-      if vote:
-        self.currentVote = vote
-        self.list2.SortItems(self.listSortVote)
+            if vote:
+              self.currentVote = vote
+              self.list2.SortItems(self.listSortVote)
 
-      for userfpr in topic.votes.keys():
-        #TODO: eliminate invalid choices from ballot
-        #TODO: eliminate duplicate userids from ballot
-        voting.addVote(topic.votes[userfpr]['vote'])
+            for userfpr in topic.votes.keys():
+              #TODO: eliminate invalid choices from ballot
+              #TODO: eliminate duplicate userids from ballot
+              voting.addVote(topic.votes[userfpr]['vote'])
       
-      #print ("DEBUG - Results for this topic: %s" % (str(voting.getRanks())))
-      self.results.SetPage(self.genResultHTML(voting.getRanks(), voting.countVotes()))
+            #print ("DEBUG - Results for this topic: %s" % (str(voting.getRanks())))
+            self.results.SetPage(self.genResultHTML(voting.getRanks(), voting.countVotes()))
       
-    else:
-      self.resetRightPanel()
+      else:
+        self.resetRightPanel()
   
   def OnProposalSelected(self, listevent):
     item  = listevent.GetItem()
@@ -444,6 +461,7 @@ class PeerGui:
     votefile.write(yaml.dump(voteblob))
     votefile.close()
     self.currentTopic.addVote(votedata)
+    self.displayTopicInfo(self.currentTopicId) #the comprehensive way to reset the current topic settings
 
   def changePreference(self, event):
     label = event.GetEventObject().GetLabel()
@@ -485,10 +503,9 @@ class PeerGui:
       self.sortingItem = self.list2.GetItemData(index)
       if index != None:
         self.list2.SortItems(self.listSortBottom)
-    
 
-  def mainloop(self):
+  def run(self):
     self.app.MainLoop()
 
-Peergov()
+peergov = Peergov(sys.argv[1:])
 #TODO: initiate some servents, once the data has been loaded

@@ -9,9 +9,9 @@ class Servent:
   PROTOCOL_IDENTIFIER = "peergov_p001"
 
   def __init__(self, ip=None, port=4991, id=None):
+    self.peers_lock = threading.RLock()
     self.peers={}
     self.serversockets=[]
-    self.peersLock = threading.RLock()
     self.handlers={}
     self.id = "%s:%s" % (ip, port)
     self.initSocket(port)
@@ -27,15 +27,17 @@ class Servent:
     print ("MSG from %s: %s" % (peerid, message))
 
   def addPeer(self, addr, handler):
-    self.peers[str(addr)]=handler
-    return str(addr)
+    with self.peers_lock:
+      self.peers[str(addr)]=handler
+      return str(addr)
 
   def addServerSocket(self, sockethandler):
     self.serversockets.append(sockethandler)
 
   def removePeer(self, peerid):
-    if peerid in self.peers:
-      self.peers[peerid]=None
+    with self.peers_lock:
+      if peerid in self.peers:
+        self.peers[peerid]=None
 
   def removeServerSocket(self, sockethandler):
     self.serversockets.remove(sockethandler)
