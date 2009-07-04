@@ -229,13 +229,13 @@ class PeerGui(threading.Thread):
     panel1 = wx.Panel(notebook)
     self.list1 = wx.ListCtrl(panel1)
     buttonpanel1 = wx.Panel(panel1)
-    buttonadd = wx.Button(buttonpanel1, wx.ID_ANY, u"\u2192", style=wx.BU_EXACTFIT)
-    buttonadd.Bind(wx.EVT_BUTTON, self.changePreference)
-    buttonrem = wx.Button(buttonpanel1, wx.ID_ANY, u"\u2190", style=wx.BU_EXACTFIT)
-    buttonrem.Bind(wx.EVT_BUTTON, self.changePreference)
+    self.buttonadd = wx.Button(buttonpanel1, wx.ID_ANY, u"\u2192", style=wx.BU_EXACTFIT)
+    self.buttonadd.Bind(wx.EVT_BUTTON, self.changePreference)
+    self.buttonrem = wx.Button(buttonpanel1, wx.ID_ANY, u"\u2190", style=wx.BU_EXACTFIT)
+    self.buttonrem.Bind(wx.EVT_BUTTON, self.changePreference)
     buttonsizer = wx.BoxSizer(wx.VERTICAL)
-    buttonsizer.Add(buttonadd, 1, wx.CENTER)
-    buttonsizer.Add(buttonrem, 1, wx.CENTER)
+    buttonsizer.Add(self.buttonadd, 1, wx.CENTER)
+    buttonsizer.Add(self.buttonrem, 1, wx.CENTER)
     buttonpanel1.SetSizer(buttonsizer)
     
     list2panel = wx.Panel(panel1)
@@ -373,7 +373,14 @@ class PeerGui(threading.Thread):
               item.SetData(-1)
               item.SetText("NO AUTHORIZATION TO VOTE")
               self.buttonvote.Enable(False)
+              self.buttonadd.Enable(False)
+              self.buttonrem.Enable(False)
               self.list2.InsertItem(item)
+            else:
+              self.buttonvote.Enable(True)
+              self.buttonadd.Enable(True)
+              self.buttonrem.Enable(True)
+
 
             for i,proposal in enumerate(topic.proposals):
               item = wx.ListItem()
