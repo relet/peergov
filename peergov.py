@@ -180,7 +180,7 @@ class Peergov:
     self.basedir = self.config['basedir']
     self.datadir = self.config['datadir']
     self.authdir = self.config['authdir']
-    self.user    = self.config['userfpr']
+    self.user    = self.config['userfpr'] #TODO: confirm that fingerprint actually exists in key ring
     self.authorizations = {}
     self.currentAuthorization = None #authorization to vote on currentTopic
   
@@ -323,6 +323,7 @@ class PeerGui(threading.Thread):
   
   def resetRightPanel(self):
     self.text.SetPage("")
+    self.results.SetPage("")
     self.list1.DeleteAllItems()
     self.list2.DeleteAllItems()
     pass
@@ -379,7 +380,7 @@ class PeerGui(threading.Thread):
             else:
               self.buttonvote.Enable(True)
               self.buttonadd.Enable(True)
-              self.buttonrem.Enable(True)
+              self.buttonrem.Enable(True		)
 
 
             for i,proposal in enumerate(topic.proposals):
@@ -400,7 +401,6 @@ class PeerGui(threading.Thread):
               #TODO: eliminate duplicate userids from ballot
               voting.addVote(topic.votes[userfpr]['vote'])
       
-            #print ("DEBUG - Results for this topic: %s" % (str(voting.getRanks())))
             self.results.SetPage(self.genResultHTML(voting.getRanks(), voting.countVotes()))
       
       else:
