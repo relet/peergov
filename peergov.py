@@ -205,13 +205,14 @@ class Peergov:
 
     self.initGui()
     self.peermanager = PeerManager(argv)
-
+  
 class PeerGui(threading.Thread):
   def __init__(self, peergov, manager):
     self.peergov = peergov
     self.manager = manager
     self.app     = wx.PySimpleApp()
     self.frame   = wx.Frame(None, wx.ID_ANY, "Peergov edge", size=(800,600))
+    #self.frame.Bind(wx.EVT_CLOSE, sys.exit, self.frame)
     self.panel   = wx.Panel(self.frame, wx.ID_ANY, style=wx.SUNKEN_BORDER)
      
     self.tree = wx.TreeCtrl(self.frame)
@@ -519,4 +520,4 @@ class PeerGui(threading.Thread):
     self.app.MainLoop()
 
 peergov = Peergov(sys.argv[1:])
-
+#TODO: when closing the gui, exit the program

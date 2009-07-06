@@ -64,9 +64,8 @@ class Servent:
       s = socket.socket(server[0], server[1])
       try:
         #s = ssl.wrap_socket(s, cert_reqs=ssl.CERT_NONE)
-        print "--- %s --- %s ---" % (str(s), str(server))
-        conn, addr = s.connect(server[4][:2])
-        sch = ServentConnectionHandler(s, addr, self)
+        s.connect(server[4][:2])
+        sch = ServentConnectionHandler(s, server[4][0], self)
         sch.start()
       except Exception, e:
         print("Failed to initialize socket at %s. %s" % (str(server), str(e)))
