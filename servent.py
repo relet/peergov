@@ -5,14 +5,16 @@ import socket
 import threading
 import traceback
 
+EVT_PEER_PROTOCOL_VERIFIED = 1
+
 class Servent:
   PROTOCOL_IDENTIFIER = "peergov_p001"
 
-  def __init__(self, ip=None, port=4991, id=None):
+  def __init__(self, peermanager, ip=None, port=4991, id=None):
+    self.manager = peermanager
     self.peers_lock = threading.RLock()
-    self.peers={}
-    self.serversockets=[]
-    self.handlers={}
+    self.peers={}           # peerid -> ServentConnectionHandler 
+    self.serversockets=[]   # just a list of open sockets (for eventual destruction)
     self.id = "%s:%s" % (ip, port)
     self.initSocket(port)
 
@@ -22,9 +24,6 @@ class Servent:
       socket.stop()
     for peerid, handler in self.peers.iteritems():
       handler.stop()
-
-  def gotMessage(self, peerid, message):
-    print ("MSG from %s: %s" % (peerid, message))
 
   def addPeer(self, addr, handler):
     with self.peers_lock:
@@ -65,10 +64,10 @@ class Servent:
       try:
         #s = ssl.wrap_socket(s, cert_reqs=ssl.CERT_NONE)
         s.connect(server[4][:2])
-        sch = ServentConnectionHandler(s, server[4][0], self)
+        sch = ServentConnectionHandler(s, server[4][0], self, isClient=True)
         sch.start()
       except Exception, e:
-        print("Failed to initialize socket at %s. %s" % (str(server), str(e)))
+        print("Failed to initialize socket at %s. %s" % (str(server[4]), str(e)))
         s.close()
     except Exception, e:
       print("Failed to open socket at %s. %s" % (str(server), str(e)))
@@ -91,6 +90,9 @@ class Servent:
       print("Failed to identify available address families. Exiting.")
       sys.exit(1)
 
+  def syncAuthorities(self, peerid, authorities):
+    self.peers[peerid].syncAuthorities(authorities)
+
 class ServentThread (threading.Thread):
   def __init__(self, socket, servent):
     self.socket = socket
@@ -112,46 +114,69 @@ class ServentThread (threading.Thread):
 
   def stop(self):
     self.stopped = True
+    print ("Closing socket %s" % str(self.socket))
     self.socket.clear()
     self.socket.close()
     self.servent.removeServerSocket(self)
-
-
+  
 class ServentConnectionHandler(threading.Thread):
   STATE_IDLE      = 0 #we are expecting a command
   STATE_DATABLOCK = 1
 
-  def __init__(self, conn, addr, servent):
+  syncingAuthorities_lock = threading.Lock()
+
+  def __init__(self, conn, addr, servent, isClient=False):
     self.conn = conn
     self.addr = addr
     self.servent = servent
     self.peerid = self.servent.addPeer(addr, self)
     self.stopped = False
-    self.state = ServentConnectionHandler.STATE_IDLE
+    self.state = self.STATE_IDLE
     self.protocol_verified = False
+    self.isClient = isClient
     threading.Thread.__init__(self)
 
-  def parseMessage(self, data):
-    if self.state == ServentConnectionHandler.STATE_IDLE:
+  def parseMessage(self, data, peerid):
+    if self.state == self.STATE_IDLE:
       try:
         words = map(lambda x:x.strip(),data.split())
         if words[0]=="HELO":
           if words[1]==self.servent.PROTOCOL_IDENTIFIER:
             self.protocol_verified = True
+            self.conn.send("EHLO "+self.servent.PROTOCOL_IDENTIFIER+"\n")
+        elif words[0]=="EHLO":
+          if words[1]==self.servent.PROTOCOL_IDENTIFIER:
+            self.protocol_verified = True
+            self.servent.manager.handleServentEvent(EVT_PEER_PROTOCOL_VERIFIED, self.peerid)
+        if not self.protocol_verified:
+          print("Protocol mismatch. Terminating connection.")
+          self.stop()
+        if words[0]=="SYNC":
+          if words[1]=="AUTH":
+            print "So far so good."
+          
       except Exception, e:     
+        traceback.print_exc()
         print("Failed to parse incoming data. %s" % str(e))
-      if not self.protocol_verified:
-        print("Protocol mismatch. Terminating connection.")
-        self.stop()
 
+  def syncAuthorities(self, authorities):
+    if self.state == self.STATE_IDLE:
+      if self.syncingAuthorities_lock.acquire(False):
+        #TODO: release lock when finished syncronization or a bogus message interferes
+        self.authorities = authorities[:]
+        self.authorities.sort()
+        self.authorities_index = 1
+        self.conn.send("SYNC AUTH "+self.authorities[0]+"\n")
+        
   def run(self):
-    self.conn.send("HELO "+self.servent.PROTOCOL_IDENTIFIER+"\n")
+    if not self.isClient:
+      self.conn.send("HELO "+self.servent.PROTOCOL_IDENTIFIER+"\n")
     try:
       while not self.stopped:
         data = self.conn.recv(1024)
         if not data: 
           break
-        self.parseMessage(data)  
+        self.parseMessage(data, self.peerid)  
     except Exception, e:
       print("Incoming connection reset: %s" % str(e))
     self.stop()
@@ -161,6 +186,7 @@ class ServentConnectionHandler(threading.Thread):
 
   def stop(self):
     self.stopped = True
+    print ("Closing connection %s" % str(self.conn))
     self.conn.close()
     self.servent.removePeer(self.peerid)
 
