@@ -144,17 +144,21 @@ class ServentConnectionHandler(threading.Thread):
           if words[1]==self.servent.PROTOCOL_IDENTIFIER:
             self.protocol_verified = True
             self.conn.send("EHLO "+self.servent.PROTOCOL_IDENTIFIER+"\n")
+            return
         elif words[0]=="EHLO":
           if words[1]==self.servent.PROTOCOL_IDENTIFIER:
             self.protocol_verified = True
             self.servent.manager.handleServentEvent(EVT_PEER_PROTOCOL_VERIFIED, self.peerid)
+            return
         if not self.protocol_verified:
           print("Protocol mismatch. Terminating connection.")
           self.stop()
+          return
         if words[0]=="SYNC":
           if words[1]=="AUTH":
             print "So far so good."
-          
+            return
+        raise(Exception("Instruction just not recognized."))
       except Exception, e:     
         traceback.print_exc()
         print("Failed to parse incoming data. %s" % str(e))
