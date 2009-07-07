@@ -72,7 +72,7 @@ class Peergov:
               if not topic['type']=='topic': #someone exchanged the files
                 return
               with self.manager.authorities_lock:
-                auth = self.manager.getAuthority(sig.fpr)
+                auth = self.manager.addAuthority(sig.fpr, interesting=True) #trusted?
                 auth.name = sigkey.uids[0].uid
                 auth.fpr = sig.fpr
                 pdir = xdir[len(self.datadir)+1:]

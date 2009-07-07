@@ -13,10 +13,17 @@ class DataManager:
     self.peers_lock = threading.RLock()
     self.peers       = {} #fpr -> Peer
 
-  def getAuthority(self, fpr):
+  def addAuthority(self, fpr, trusted = False, interesting = False):
     with self.authorities_lock:
       if not fpr in self.authorities:
-        self.authorities[fpr]=Authority()
+        auth = Authority()
+        auth.trusted = trusted
+        auth.interesting = interesting
+        self.authorities[fpr]=auth
+      return self.authorities[fpr]
+
+  def getAuthority(self, fpr):
+    with self.authorities_lock:
       return self.authorities[fpr]
 
   def getTopicByPath(self, topicpath): 
@@ -33,6 +40,8 @@ class DataManager:
 class Authority:
   name        = None
   fpr         = None
+  trusted     = False
+  interesting = False
   topics_lock = threading.RLock()
   topics      = {} #topicid -> Topic    
   

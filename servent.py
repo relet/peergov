@@ -6,6 +6,7 @@ import threading
 import traceback
 
 EVT_PEER_PROTOCOL_VERIFIED = 1
+EVT_PEER_AUTHORITIES_SYNCHRONIZED = 2
 
 class Servent:
   PROTOCOL_IDENTIFIER = "peergov_p001"
@@ -134,9 +135,11 @@ class ServentConnectionHandler(threading.Thread):
     self.state = self.STATE_IDLE
     self.protocol_verified = False
     self.isClient = isClient
+    self.lastAuthSync = None
     threading.Thread.__init__(self)
 
   def parseMessage(self, data, peerid):
+    print("%s: %s" % (peerid, data))
     if self.state == self.STATE_IDLE:
       try:
         words = map(lambda x:x.strip(),data.split())
@@ -156,7 +159,40 @@ class ServentConnectionHandler(threading.Thread):
           return
         if words[0]=="SYNC":
           if words[1]=="AUTH":
-            print "So far so good."
+            self.syncingAuthorities_lock.acquire(False) # non blocking, lock into syncAuth process
+            dataman = self.servent.manager.datamanager  # lol, we need to trim down hierarchies
+            with dataman.authorities_lock:
+              authorities = dataman.authorities.keys()
+              authorities.sort()
+              if words[2]=="FIN":
+                pos = self.lastAuthSync and authorities.index(self.lastAuthSync) or 0
+                next = authorities[pos+1:]
+                if next:
+                  self.conn.send("SYNC AUTH "+next[0]+"\n")
+                else:
+                  self.syncingAuthorities_lock.release()
+                  if not "ACK" in words:
+                    self.conn.send("SYNC AUTH FIN ACK\n")
+                  else:
+                    self.servent.manager.handleServentEvent(EVT_PEER_AUTHORITIES_SYNCHRONIZED, self.peerid)
+                return
+              for word in words[2:]:
+                if not word in authorities:
+                  dataman.addAuthority(word, trusted = False, interesting = False)
+              p1 = self.lastAuthSync and authorities.index(self.lastAuthSync) or 0
+              p2 = authorities.index(words[2])
+              lack = ""
+              for index in range(p1+1,p2): 
+                lack += authorities[index]+" "
+              self.lastAuthSync = words[-1]
+              if lack:
+                self.conn.send("SYNC AUTH "+lack+"\n")
+              else:
+                next = authorities[p2+1:]
+                if next:
+                  self.conn.send("SYNC AUTH "+next[0]+"\n")
+                else:
+                  self.conn.send("SYNC AUTH FIN\n")
             return
         raise(Exception("Instruction just not recognized."))
       except Exception, e:     
