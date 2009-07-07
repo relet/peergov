@@ -27,3 +27,7 @@ class PeerManager:
         self.servent.syncAuthorities(peerid, authorities)
       else:
         print("No authorities?")
+    elif event == EVT_PEER_AUTHORITIES_SYNCHRONIZED:
+      #TODO: initialize syncing of topics
+      pass
+        

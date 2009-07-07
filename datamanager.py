@@ -21,6 +21,8 @@ class DataManager:
         auth.interesting = interesting
         self.authorities[fpr]=auth
       return self.authorities[fpr]
+    #TODO: notify any listeners of new authorities available
+    #TODO: listeners
 
   def getAuthority(self, fpr):
     with self.authorities_lock:
