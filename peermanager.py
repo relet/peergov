@@ -21,13 +21,15 @@ class PeerManager:
 
   def handleServentEvent(self, event, peerid):
     if event == EVT_PEER_PROTOCOL_VERIFIED:
-      with self.datamanager.authorities_lock:
-        authorities = self.datamanager.authorities.keys() 
-      if authorities:
-        self.servent.syncAuthorities(peerid, authorities)
-      else:
-        print("No authorities?")
+      self.servent.syncAuthorities(peerid)
     elif event == EVT_PEER_AUTHORITIES_SYNCHRONIZED:
-      #TODO: initialize syncing of topics
+      with self.datamanager.authorities_lock:
+        authorities = self.datamanager.authorities 
+        if authorities:
+          for authfpr in authorities.keys():
+            authority = authorities[authfpr]
+            if authority.interesting:
+              self.servent.syncTopics(peerid, authority)
+        else:
+          print("No authorities?")
       pass
-        

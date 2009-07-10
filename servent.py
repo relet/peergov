@@ -7,6 +7,7 @@ import traceback
 
 EVT_PEER_PROTOCOL_VERIFIED = 1
 EVT_PEER_AUTHORITIES_SYNCHRONIZED = 2
+EVT_PEER_TOPIC_SYNCHRONIZED = 3
 
 class Servent:
   PROTOCOL_IDENTIFIER = "peergov_p001"
@@ -91,8 +92,10 @@ class Servent:
       print("Failed to identify available address families. Exiting.")
       sys.exit(1)
 
-  def syncAuthorities(self, peerid, authorities):
-    self.peers[peerid].syncAuthorities(authorities)
+  def syncAuthorities(self, peerid):
+    self.peers[peerid].syncAuthorities()
+  def syncTopics(self, peerid, authority):
+    self.peers[peerid].syncTopics(authority)
 
 class ServentThread (threading.Thread):
   def __init__(self, socket, servent):
@@ -121,10 +124,8 @@ class ServentThread (threading.Thread):
     self.servent.removeServerSocket(self)
   
 class ServentConnectionHandler(threading.Thread):
-  STATE_IDLE      = 0 #we are expecting a command
-  STATE_DATABLOCK = 1
-
   syncingAuthorities_lock = threading.Lock()
+  syncingTopics_lock      = threading.Lock()
 
   def __init__(self, conn, addr, servent, isClient=False):
     self.conn = conn
@@ -132,82 +133,133 @@ class ServentConnectionHandler(threading.Thread):
     self.servent = servent
     self.peerid = self.servent.addPeer(addr, self)
     self.stopped = False
-    self.state = self.STATE_IDLE
     self.protocol_verified = False
     self.isClient = isClient
+    self.authorities = None
     self.lastAuthSync = None
+    self.lastTopicSync = None
     threading.Thread.__init__(self)
 
   def parseMessage(self, data, peerid):
     print("%s: %s" % (peerid, data))
-    if self.state == self.STATE_IDLE:
-      try:
-        words = map(lambda x:x.strip(),data.split())
-        if words[0]=="HELO":
-          if words[1]==self.servent.PROTOCOL_IDENTIFIER:
-            self.protocol_verified = True
-            self.conn.send("EHLO "+self.servent.PROTOCOL_IDENTIFIER+"\n")
-            return
-        elif words[0]=="EHLO":
-          if words[1]==self.servent.PROTOCOL_IDENTIFIER:
-            self.protocol_verified = True
-            self.servent.manager.handleServentEvent(EVT_PEER_PROTOCOL_VERIFIED, self.peerid)
-            return
-        if not self.protocol_verified:
-          print("Protocol mismatch. Terminating connection.")
-          self.stop()
+    try:
+      words = map(lambda x:x.strip(),data.split())
+      if words[0]=="HELO":
+        if words[1]==self.servent.PROTOCOL_IDENTIFIER:
+          self.protocol_verified = True
+          self.conn.send("EHLO "+self.servent.PROTOCOL_IDENTIFIER+"\n")
           return
-        if words[0]=="SYNC":
-          if words[1]=="AUTH":
-            self.syncingAuthorities_lock.acquire(False) # non blocking, lock into syncAuth process
+      elif words[0]=="EHLO":
+        if words[1]==self.servent.PROTOCOL_IDENTIFIER:
+          self.protocol_verified = True
+          self.servent.manager.handleServentEvent(EVT_PEER_PROTOCOL_VERIFIED, self.peerid)
+          return
+      if not self.protocol_verified:
+        print("Protocol mismatch. Terminating connection.")
+        self.stop()
+        return
+      if words[0]=="SYNC":
+        if words[1]=="AUTH":
+          self.syncingAuthorities_lock.acquire(False) # non blocking, lock into syncAuth process
+          if not self.authorities:
             dataman = self.servent.manager.datamanager  # lol, we need to trim down hierarchies
             with dataman.authorities_lock:
               authorities = dataman.authorities.keys()
               authorities.sort()
-              if words[2]=="FIN":
-                pos = self.lastAuthSync and authorities.index(self.lastAuthSync) or 0
-                next = authorities[pos+1:]
-                if next:
-                  self.conn.send("SYNC AUTH "+next[0]+"\n")
-                else:
-                  self.syncingAuthorities_lock.release()
-                  if not "ACK" in words:
-                    self.conn.send("SYNC AUTH FIN ACK\n")
-                  else:
-                    self.servent.manager.handleServentEvent(EVT_PEER_AUTHORITIES_SYNCHRONIZED, self.peerid)
-                return
-              for word in words[2:]:
-                if not word in authorities:
-                  dataman.addAuthority(word, trusted = False, interesting = False)
-              p1 = self.lastAuthSync and authorities.index(self.lastAuthSync) or 0
-              p2 = authorities.index(words[2])
-              lack = ""
-              for index in range(p1+1,p2): 
-                lack += authorities[index]+" "
-              self.lastAuthSync = words[-1]
-              if lack:
-                self.conn.send("SYNC AUTH "+lack+"\n")
+              self.authorities = authorities
+          p1 = self.lastAuthSync and self.authorities.index(self.lastAuthSync) or 0
+          if words[2]=="FIN":
+            next = self.authorities[p1+1:]
+            if next:
+              self.conn.send("SYNC AUTH "+next[0]+"\n")
+            else:
+              self.syncingAuthorities_lock.release()
+              self.authorities = None
+              if not "ACK" in words:
+                self.conn.send("SYNC AUTH FIN ACK\n")
               else:
-                next = authorities[p2+1:]
-                if next:
-                  self.conn.send("SYNC AUTH "+next[0]+"\n")
-                else:
-                  self.conn.send("SYNC AUTH FIN\n")
+                self.servent.manager.handleServentEvent(EVT_PEER_AUTHORITIES_SYNCHRONIZED, self.peerid)
             return
-        raise(Exception("Instruction just not recognized."))
-      except Exception, e:     
-        traceback.print_exc()
-        print("Failed to parse incoming data. %s" % str(e))
+          for word in words[2:]:
+            if not word in self.authorities:
+              dataman.addAuthority(word, trusted = False, interesting = False)
+          p2 = self.authorities.index(words[2])
+          lack = ""
+          for auth in self.authorities[p1+1:p2]: 
+            lack += auth+" "
+          self.lastAuthSync = words[-1]
+          if lack:
+            self.conn.send("SYNC AUTH "+lack+"\n")
+          else:
+            next = self.authorities[p2+1:]
+            if next:
+              self.conn.send("SYNC AUTH "+next[0]+"\n")
+            else:
+              self.conn.send("SYNC AUTH FIN\n")
+          return
+        if words[1]=="TOPC":
+          self.syncingTopics_lock.acquire(False) # non blocking, lock into syncAuth process
+          dataman = self.servent.manager.datamanager 
+          if words[2:]:
+            authority = dataman.getAuthority(words[2]) #authority fpr
+            if authority:
+              with authority.topics_lock:
+                topics = authority.topics.keys()
+                topics.sort()
+                p1 = self.lastTopicSync and topics.index(self.lastTopicSync) or 0
+                if words[3]=="FIN":
+                  next = topics[p1+1:]
+                  if next:
+                    self.conn.send("SYNC TOPC %s %s" % (authority.fpr, next))
+                  else:
+                    self.syncingTopics_lock.release()
+                    if not "ACK" in words:
+                      self.conn.send("SYNC TOPC %s FIN ACK\n" % (authority.fpr))
+                    else:
+                      self.servent.manager.handleServentEvent(EVT_PEER_TOPIC_SYNCHRONIZED, self.peerid) # do we need this event?
+                  return
+                for word in words[3:]:
+                  if not word in topics:
+                    self.conn.send("SEND TOPC %s %s\n" % (authority.fpr, word))
+                p2 = topics.index(words[3])
+                lack = ""
+                for topic in topics[p1+1:p2]:
+                  lack += topic+" "
+                self.lastTopicSync = words[-1]
+                if lack:
+                  self.conn.send("SYNC TOPC %s %s\n" % (authority.fpr, lack))
+                else:
+                  next = topics[p2+1:]
+                  if next:
+                    self.conn.send("SYNC TOPC %s %s\n" % (authority.fpr, next[0]))
+                  else:
+                    self.conn.send("SYNC TOPC %s FIN\n" % (authority.fpr))
+                return
+           
+      raise(Exception("Instruction just not recognized."))
+    except Exception, e:     
+      traceback.print_exc()
+      print("Failed to parse incoming data. %s" % str(e))
 
-  def syncAuthorities(self, authorities):
-    if self.state == self.STATE_IDLE:
-      if self.syncingAuthorities_lock.acquire(False):
-        #TODO: release lock when finished syncronization or a bogus message interferes
-        self.authorities = authorities[:]
-        self.authorities.sort()
-        self.authorities_index = 1
-        self.conn.send("SYNC AUTH "+self.authorities[0]+"\n")
-        
+  def syncAuthorities(self):
+    if self.syncingAuthorities_lock.acquire(False):
+      dataman = self.servent.manager.datamanager  # lol, we need to trim down hierarchies
+      with dataman.authorities_lock:
+        authorities = dataman.authorities.keys()
+        authorities.sort()
+        self.authorities = authorities
+        self.conn.send("SYNC AUTH %s\n" % (self.authorities[0]))
+
+  def syncTopics(self, authority):
+    if authority:
+      if self.syncingTopics_lock.acquire(False):
+        #TODO: release lock 
+        with authority.topics_lock:
+          topics = authority.topics.keys()
+          topics.sort()
+          if topics:
+            self.conn.send("SYNC TOPC %s %s\n" % (authority.fpr, topics[0]))
+
   def run(self):
     if not self.isClient:
       self.conn.send("HELO "+self.servent.PROTOCOL_IDENTIFIER+"\n")
