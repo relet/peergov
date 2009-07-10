@@ -1,0 +1,5 @@
+How to fix pyme for python 2.6:
+   sudo sensible-editor /usr/lib/python2.6/dist-packages/pyme/errors.py
+remove or comment line 24:
+   #self.message = message
+
