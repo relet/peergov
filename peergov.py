@@ -71,6 +71,9 @@ class Peergov:
               topic = yaml.load(topicy.read())
               if not topic['type']=='topic': #someone exchanged the files
                 return
+              if not topic['path'] == xdir[-len(topic['path']):]:
+                print ("Topic path is not correct: %s." % (str(xdir)))
+                return
               with self.manager.authorities_lock:
                 auth = self.manager.addAuthority(sig.fpr, interesting=True) #trusted?
                 auth.name = sigkey.uids[0].uid
@@ -220,7 +223,7 @@ class PeerGui(threading.Thread):
     self.root = self.tree.AddRoot('Authorities')
     self.tree.SetItemHasChildren(self.root)
 
-    self.resetTree(True)
+    self.resetTree(False)
     self.tree.ExpandAll()
 
     self.text = wx.html.HtmlWindow(self.frame)
@@ -381,7 +384,7 @@ class PeerGui(threading.Thread):
             else:
               self.buttonvote.Enable(True)
               self.buttonadd.Enable(True)
-              self.buttonrem.Enable(True		)
+              self.buttonrem.Enable(True)
 
 
             for i,proposal in enumerate(topic.proposals):

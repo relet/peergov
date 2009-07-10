@@ -5,7 +5,6 @@ import threading
 #we're thread safe for reading and writing currently. Or trying to be, if used correctly.
 
 class DataManager:
-
   def __init__(self):
     self.datadir     = "."
     self.authorities_lock = threading.RLock()
@@ -26,7 +25,10 @@ class DataManager:
 
   def getAuthority(self, fpr):
     with self.authorities_lock:
-      return self.authorities[fpr]
+      if fpr in self.authorities:
+        return self.authorities[fpr]
+      else:
+        return None
 
   def getTopicByPath(self, topicpath): 
     dirs = topicpath.split("/") 
@@ -40,21 +42,23 @@ class DataManager:
     return None, None
 
 class Authority:
-  name        = None
-  fpr         = None
-  trusted     = False
-  interesting = False
-  topics_lock = threading.RLock()
-  topics      = {} #topicid -> Topic    
+  def __init__(self):
+    self.name        = None
+    self.fpr         = None
+    self.trusted     = False
+    self.interesting = False
+    self.topics_lock = threading.RLock()
+    self.topics      = {} #topicid -> Topic    
   
 class Topic:
-  data        = None
-  signature   = None
-  proposals_lock = threading.RLock()
-  proposals   = [] #Proposal
-  votes_lock = threading.RLock()
-  votes       = {} #user fpr -> vote data struct
-  
+  def __init__(self):
+    self.proposals   = [] #Proposal
+    self.data        = None
+    self.signature   = None
+    self.proposals_lock = threading.RLock()
+    self.votes_lock = threading.RLock()
+    self.votes       = {} #user fpr -> vote data struct
+
   def getProposalById(self, id):
     with self.proposals_lock:
       for comp in self.proposals:
