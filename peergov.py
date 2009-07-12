@@ -320,8 +320,18 @@ class PeerGui(threading.Thread):
             if not collapsed:
               dirs = tid.split("/")[1:]
               for xdir in dirs:
-                parent = self.tree.AppendItem(parent, xdir)
-                self.tree.SetItemHasChildren(parent)
+                exists = False
+                for i in range(self.tree.GetChildrenCount(parent)):
+                  item, foo = self.tree.GetFirstChild(parent)
+                  text = self.tree.GetItemText(item)
+                  if text == xdir:
+                    exists = True
+                    break
+                if not exists:
+                  parent = self.tree.AppendItem(parent, xdir)
+                  self.tree.SetItemHasChildren(parent)
+                else:
+                  parent = item
             tchild = self.tree.AppendItem(parent, topic.data['title'])
             self.tree.SetItemData(tchild, wx.TreeItemData(tid))
   

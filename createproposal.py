@@ -19,12 +19,11 @@ c.set_passphrase_cb(getPassphrase)
 
 topic = {}
 topic['type']='proposal'
-topic['path']='82529AF0DBF39AAE02BFA77FE00A9A6E8F5630AB/lunch/20090715/place'
-topic['title']='Giorgio'
+topic['path']='58BD0CCEB421BFB9BE694135F66EA1A3025BA2BF/lunch/2009-07-15/place'
+topic['title']='Mozzarella'
 topic['id']=md5(topic['path']+topic['title']).hexdigest()
 topic['short']='We shall eat finest Italian pizza and pasta.'
 topic['text']=None
-topic['expired']=str(datetime(2009,7,15,23,59))
 topic['author']='futterbot'
 
 blob = pyme.core.Data(yaml.dump(topic))
