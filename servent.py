@@ -162,11 +162,12 @@ class ServentConnectionHandler(threading.Thread):
         if data == "DATA FIN":
           content = yaml.load(self.datablock)
           if content[0]['type']=='topic':
-            with self.authority.topics_lock:
-              topic = Topic()
-              self.authority.topics[content[0]['path']]=topic
-              topic.data, topic.proposals, topic.votes = content
-              #TODO: validate signatures etc. - create utility methods in data manager!              
+            if not content[0]['path'] in self.authority.topics:
+              with self.authority.topics_lock:
+                topic = Topic()
+                self.authority.topics[content[0]['path']]=topic
+                topic.data, topic.proposals, topic.votes = content
+                #TODO: validate signatures etc. - create utility methods in data manager!              
             print "We got a topic here!"
           else:
             print content
