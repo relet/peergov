@@ -4,6 +4,7 @@ import sys
 import socket
 import threading
 import traceback
+import yaml
 
 EVT_PEER_PROTOCOL_VERIFIED = 1
 EVT_PEER_AUTHORITIES_SYNCHRONIZED = 2
@@ -220,8 +221,9 @@ class ServentConnectionHandler(threading.Thread):
                       self.servent.manager.handleServentEvent(EVT_PEER_TOPIC_SYNCHRONIZED, self.peerid) # do we need this event?
                   return
                 for word in words[3:]:
-                  if not word in topics:
+                  #if not word in topics:
                     self.conn.send("SEND TOPC %s %s\n" % (authority.fpr, word))
+                  #else synchronize topic contents?
                 p2 = topics.index(words[3])
                 lack = ""
                 for topic in topics[p1+1:p2]:
@@ -237,7 +239,21 @@ class ServentConnectionHandler(threading.Thread):
                   else:
                     self.conn.send("SYNC TOPC %s FIN\n" % (authority.fpr))
                 return
-           
+      elif words[0]=="SEND":
+        if words[1]=="TOPC":
+           dataman = self.servent.manager.datamanager 
+           authority = dataman.getAuthority(words[2]) #authority fpr
+           topic   = authority.topics[words[3]]
+           self.conn.send("DATA TOPC %s %s" % (authority.fpr, topic.data['id'])); 
+           self.conn.send(yaml.dump(topic.data)); #sending yaml dumps around is *NOT* smart. They may contain arbitrary data.
+           self.conn.send(yaml.dump(topic.proposals)); 
+           self.conn.send(yaml.dump(topic.votes)); 
+           self.conn.send("DATA FIN"); 
+           return
+      elif words[0]=="DATA":
+        print "TODO!"
+        return
+     
       raise(Exception("Instruction just not recognized."))
     except Exception, e:     
       traceback.print_exc()
