@@ -5,6 +5,7 @@ import socket
 import threading
 import traceback
 import yaml
+from datamanager import *
 
 EVT_PEER_PROTOCOL_VERIFIED = 1
 EVT_PEER_AUTHORITIES_SYNCHRONIZED = 2
@@ -124,6 +125,9 @@ class ServentThread (threading.Thread):
     self.socket.close()
     self.servent.removeServerSocket(self)
   
+STATE_IDLE = 0
+STATE_DATABLOCK = 1
+
 class ServentConnectionHandler(threading.Thread):
   syncingAuthorities_lock = threading.Lock()
   syncingTopics_lock      = threading.Lock()
@@ -134,16 +138,42 @@ class ServentConnectionHandler(threading.Thread):
     self.servent = servent
     self.peerid = self.servent.addPeer(addr, self)
     self.stopped = False
+    self.state = STATE_IDLE
     self.protocol_verified = False
     self.isClient = isClient
+    self.authority = None
     self.authorities = None
     self.lastAuthSync = None
     self.lastTopicSync = None
     threading.Thread.__init__(self)
 
   def parseMessage(self, data, peerid):
-    print("%s: %s" % (peerid, data))
+    if data:
+      lines = data.split("\n")
+      for line in lines:
+        if line.strip():
+          self.parseLine(line, peerid) 
+
+  def parseLine(self, data, peerid):
     try:
+      dataman = self.servent.manager.datamanager  # lol, we need to trim down hierarchies
+      if self.state == STATE_DATABLOCK:
+        terminating = False
+        if data == "DATA FIN":
+          content = yaml.load(self.datablock)
+          if content[0]['type']=='topic':
+            with self.authority.topics_lock:
+              topic = Topic()
+              self.authority.topics[content[0]['path']]=topic
+              topic.data, topic.proposals, topic.votes = content
+              #TODO: validate signatures etc. - create utility methods in data manager!              
+            print "We got a topic here!"
+          else:
+            print content
+          self.state == STATE_IDLE 
+        else:
+          self.datablock += data+"\n"
+        return
       words = map(lambda x:x.strip(),data.split())
       if words[0]=="HELO":
         if words[1]==self.servent.PROTOCOL_IDENTIFIER:
@@ -163,7 +193,6 @@ class ServentConnectionHandler(threading.Thread):
         if words[1]=="AUTH":
           self.syncingAuthorities_lock.acquire(False) # non blocking, lock into syncAuth process
           if not self.authorities:
-            dataman = self.servent.manager.datamanager  # lol, we need to trim down hierarchies
             with dataman.authorities_lock:
               authorities = dataman.authorities.keys()
               authorities.sort()
@@ -200,7 +229,6 @@ class ServentConnectionHandler(threading.Thread):
           return
         if words[1]=="TOPC":
           self.syncingTopics_lock.acquire(False) # non blocking, lock into syncAuth process
-          dataman = self.servent.manager.datamanager 
           if words[2:]:
             authority = dataman.getAuthority(words[2]) #authority fpr
             if authority:
@@ -241,17 +269,17 @@ class ServentConnectionHandler(threading.Thread):
                 return
       elif words[0]=="SEND":
         if words[1]=="TOPC":
-           dataman = self.servent.manager.datamanager 
            authority = dataman.getAuthority(words[2]) #authority fpr
            topic   = authority.topics[words[3]]
-           self.conn.send("DATA TOPC %s %s" % (authority.fpr, topic.data['id'])); 
-           self.conn.send(yaml.dump(topic.data)); #sending yaml dumps around is *NOT* smart. They may contain arbitrary data.
-           self.conn.send(yaml.dump(topic.proposals)); 
-           self.conn.send(yaml.dump(topic.votes)); 
-           self.conn.send("DATA FIN"); 
+           self.conn.send("DATA TOPC %s %s\n" % (authority.fpr, words[3])); 
+           self.conn.send("%s\n" % yaml.dump([topic.data, topic.proposals, topic.votes])); #sending yaml dumps around is *NOT* smart. They may contain arbitrary data.
+           self.conn.send("DATA FIN\n"); 
            return
       elif words[0]=="DATA":
-        print "TODO!"
+        self.state = STATE_DATABLOCK
+        self.datablock = ""
+        if words[1]=="TOPC":
+          self.authority = dataman.getAuthority(words[2])
         return
      
       raise(Exception("Instruction just not recognized."))
