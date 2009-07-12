@@ -210,7 +210,8 @@ class ServentConnectionHandler(threading.Thread):
                 if words[3]=="FIN":
                   next = topics[p1+1:]
                   if next:
-                    self.conn.send("SYNC TOPC %s %s" % (authority.fpr, next))
+                    self.lastTopicSync = next[0]
+                    self.conn.send("SYNC TOPC %s %s" % (authority.fpr, next[0]))
                   else:
                     self.syncingTopics_lock.release()
                     if not "ACK" in words:
@@ -231,6 +232,7 @@ class ServentConnectionHandler(threading.Thread):
                 else:
                   next = topics[p2+1:]
                   if next:
+                    self.lastTopicSync = next[0]
                     self.conn.send("SYNC TOPC %s %s\n" % (authority.fpr, next[0]))
                   else:
                     self.conn.send("SYNC TOPC %s FIN\n" % (authority.fpr))
