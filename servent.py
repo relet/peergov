@@ -234,17 +234,23 @@ class ServentConnectionHandler(threading.Thread):
         elif words[1]=="TOPC":
           self.syncingTopics_lock.acquire(False) # non blocking, lock into syncAuth process
           if words[2:]:
-            authority = dataman.getAuthority(words[2]) #authority fpr
+            authority = None
+            nextword  = 2
+            if "/" in words[2]:
+              authority = dataman.getAuthority(words[2][:words[2].index("/")])
+            else:
+              authority = dataman.getAuthority(words[2]) #authority fpr
+              nextword = 3
             if authority:
               with authority.topics_lock:
                 topics = authority.topics.keys()
                 topics.sort()
                 p1 = self.lastTopicSync and topics.index(self.lastTopicSync) or 0
-                if words[3]=="FIN":
+                if words[nextword]=="FIN":
                   next = topics[p1+1:]
                   if next:
                     self.lastTopicSync = next[0]
-                    self.conn.send("SYNC TOPC %s %s" % (authority.fpr, next[0]))
+                    self.conn.send("SYNC TOPC %s" % (next[0]))
                   else:
                     self.syncingTopics_lock.release()
                     if not "ACK" in words:
@@ -252,23 +258,23 @@ class ServentConnectionHandler(threading.Thread):
                     else:
                       self.servent.manager.handleServentEvent(EVT_PEER_TOPIC_SYNCHRONIZED, self.peerid) # do we need this event?
                   return
-                for word in words[3:]:
+                for word in words[nextword:]:
                   if not word in topics:
                     self.conn.send("SEND TOPC %s %s\n" % (authority.fpr, word))
                   else:
                     self.syncTopicData(authority, word)
-                p2 = topics.index(words[3])
+                p2 = topics.index(words[nextword])
                 lack = ""
                 for topic in topics[p1+1:p2]:
                   lack += topic+" "
                 self.lastTopicSync = words[-1]
                 if lack:
-                  self.conn.send("SYNC TOPC %s %s\n" % (authority.fpr, lack))
+                  self.conn.send("SYNC TOPC %s\n" % (lack))
                 else:
                   next = topics[p2+1:]
                   if next:
                     self.lastTopicSync = next[0]
-                    self.conn.send("SYNC TOPC %s %s\n" % (authority.fpr, next[0]))
+                    self.conn.send("SYNC TOPC %s \n" % (next[0]))
                   else:
                     self.conn.send("SYNC TOPC %s FIN\n" % (authority.fpr))
                 return
@@ -314,7 +320,7 @@ class ServentConnectionHandler(threading.Thread):
           topics = authority.topics.keys()
           topics.sort()
           if topics:
-            self.conn.send("SYNC TOPC %s %s\n" % (authority.fpr, topics[0]))
+            self.conn.send("SYNC TOPC %s\n" % (topics[0]))
 
   def syncTopicData(self, authority, topic):
     if authority:
@@ -325,12 +331,12 @@ class ServentConnectionHandler(threading.Thread):
             proposals = topic.proposals[:]
             proposals.sort()
             if proposals:
-              self.conn.send("SYNC PROP %s %s %s\n" % (authority.fpr, topic.data['path'], proposals[0]['id']))
+              self.conn.send("SYNC PROP %s %s\n" % (topic.data['path'], proposals[0]['id']))
           with topic.votes_lock:
             votes = topic.votes.keys()
             votes.sort()
             if votes:
-              self.conn.send("SYNC VOTE %s %s %s\n" % (authority.fpr, topic.data['path'], votes[0]))
+              self.conn.send("SYNC VOTE %s %s\n" % (topic.data['path'], votes[0]))
 
   def run(self):
     if not self.isClient:
