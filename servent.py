@@ -130,6 +130,7 @@ STATE_DATABLOCK = 1
 class ServentConnectionHandler(threading.Thread):
   syncingAuthorities_lock = threading.Lock()
   syncingTopics_lock      = threading.Lock()
+  syncingTopicData_lock   = threading.Lock()
 
   def __init__(self, conn, addr, servent, isClient=False):
     self.conn = conn
@@ -230,7 +231,7 @@ class ServentConnectionHandler(threading.Thread):
             else:
               self.conn.send("SYNC AUTH FIN\n")
           return
-        if words[1]=="TOPC":
+        elif words[1]=="TOPC":
           self.syncingTopics_lock.acquire(False) # non blocking, lock into syncAuth process
           if words[2:]:
             authority = dataman.getAuthority(words[2]) #authority fpr
@@ -252,9 +253,10 @@ class ServentConnectionHandler(threading.Thread):
                       self.servent.manager.handleServentEvent(EVT_PEER_TOPIC_SYNCHRONIZED, self.peerid) # do we need this event?
                   return
                 for word in words[3:]:
-                  #if not word in topics:
+                  if not word in topics:
                     self.conn.send("SEND TOPC %s %s\n" % (authority.fpr, word))
-                  #else synchronize topic contents?
+                  else:
+                    self.syncTopicData(authority, word)
                 p2 = topics.index(words[3])
                 lack = ""
                 for topic in topics[p1+1:p2]:
@@ -270,6 +272,12 @@ class ServentConnectionHandler(threading.Thread):
                   else:
                     self.conn.send("SYNC TOPC %s FIN\n" % (authority.fpr))
                 return
+        elif words[1]=="PROP":
+          print data
+          return
+        elif words[1]=="VOTE":
+          print data
+          return
       elif words[0]=="SEND":
         if words[1]=="TOPC":
            authority = dataman.getAuthority(words[2]) #authority fpr
@@ -302,12 +310,27 @@ class ServentConnectionHandler(threading.Thread):
   def syncTopics(self, authority):
     if authority:
       if self.syncingTopics_lock.acquire(False):
-        #TODO: release lock 
         with authority.topics_lock:
           topics = authority.topics.keys()
           topics.sort()
           if topics:
             self.conn.send("SYNC TOPC %s %s\n" % (authority.fpr, topics[0]))
+
+  def syncTopicData(self, authority, topic):
+    if authority:
+      if self.syncingTopicData_lock.acquire(False):
+        with authority.topics_lock:
+          topic = authority.topics[topic]
+          with topic.proposals_lock:
+            proposals = topic.proposals[:]
+            proposals.sort()
+            if proposals:
+              self.conn.send("SYNC PROP %s %s %s\n" % (authority.fpr, topic.data['path'], proposals[0]['id']))
+          with topic.votes_lock:
+            votes = topic.votes.keys()
+            votes.sort()
+            if votes:
+              self.conn.send("SYNC VOTE %s %s %s\n" % (authority.fpr, topic.data['path'], votes[0]))
 
   def run(self):
     if not self.isClient:
