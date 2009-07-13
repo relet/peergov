@@ -46,7 +46,6 @@ class Servent:
     self.serversockets.remove(sockethandler)
 
   def runSocketThread(self, addr):
-    print addr
     try:
       s = socket.socket(addr[0], addr[1])
       #s = ssl.wrap_socket(s, server_side = True, cert_reqs = ssl.CERT_NONE)
@@ -160,17 +159,21 @@ class ServentConnectionHandler(threading.Thread):
       if self.state == STATE_DATABLOCK:
         terminating = False
         if data == "DATA FIN":
-          content = yaml.load(self.datablock)
-          if content[0]['type']=='topic':
-            if not content[0]['path'] in self.authority.topics:
-              with self.authority.topics_lock:
-                topic = Topic()
-                self.authority.topics[content[0]['path']]=topic
-                topic.data, topic.proposals, topic.votes = content
-                #TODO: validate signatures etc. - create utility methods in data manager!              
-            print "We got a topic here!"
-          else:
-            print content
+          try:
+            content = yaml.load(self.datablock)
+            if content[0]['type']=='topic':
+              if not content[0]['path'] in self.authority.topics:
+                with self.authority.topics_lock:
+                  topic = Topic()
+                  self.authority.topics[content[0]['path']]=topic
+                  topic.data, topic.proposals, topic.votes = content
+                  #TODO: validate signatures etc. - create utility methods in data manager!              
+              print "We got a topic here!"
+            else:
+              print content
+          except:
+            print ("Failed to parse:\n---\n%s\n---" % self.datablock)
+            sys.exit(1)
           self.state == STATE_IDLE 
         else:
           self.datablock += data+"\n"
@@ -273,7 +276,7 @@ class ServentConnectionHandler(threading.Thread):
            authority = dataman.getAuthority(words[2]) #authority fpr
            topic   = authority.topics[words[3]]
            self.conn.send("DATA TOPC %s %s\n" % (authority.fpr, words[3])); 
-           self.conn.send("%s\n" % yaml.dump([topic.data, topic.proposals, topic.votes])); #sending yaml dumps around is *NOT* smart. They may contain arbitrary data.
+           self.conn.send("%s\n" %yaml.dump([topic.data, topic.proposals, topic.votes])); #sending yaml dumps around is *NOT* smart. They may contain arbitrary data.
            self.conn.send("DATA FIN\n"); 
            return
       elif words[0]=="DATA":
@@ -312,7 +315,7 @@ class ServentConnectionHandler(threading.Thread):
       self.conn.send("HELO "+self.servent.PROTOCOL_IDENTIFIER+"\n")
     try:
       while not self.stopped:
-        data = self.conn.recv(1024)
+        data = self.conn.recv(4096)
         if not data: 
           break
         self.parseMessage(data, self.peerid)  

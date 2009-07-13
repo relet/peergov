@@ -17,15 +17,15 @@ c = pyme.core.Context()
 c.set_armor(1)
 c.set_passphrase_cb(getPassphrase)
 
-c.op_keylist_start('Voter 1', 0)
-votekey = c.op_keylist_next(	)
+c.op_keylist_start('Voter 2', 0)
+votekey = c.op_keylist_next()
 
 if not votekey:
   print ("No such key found.")
   sys.exit(1)
 
 voterid = votekey.subkeys[0].fpr
-topicid = '58BD0CCEB421BFB9BE694135F66EA1A3025BA2BF/lunch'
+topicid = '82529AF0DBF39AAE02BFA77FE00A9A6E8F5630AB/lunch'
 
 authorization = yaml.dump([voterid, topicid])
 authblob      = pyme.core.Data(authorization)
