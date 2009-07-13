@@ -207,7 +207,7 @@ class Peergov:
         self.loadAuth(root, file)
 
     self.initGui()
-    self.peermanager = PeerManager(argv, datamanager = self.manager)
+    self.peermanager = PeerManager(argv, peergov = self)
   
 class PeerGui(threading.Thread):
   def __init__(self, peergov, manager):

@@ -168,7 +168,6 @@ class ServentConnectionHandler(threading.Thread):
                   self.authority.topics[content[0]['path']]=topic
                   topic.data, topic.proposals, topic.votes = content
                   #TODO: validate signatures etc. - create utility methods in data manager!              
-              print "We got a topic here!"
             else:
               print content
           except:
