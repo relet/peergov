@@ -319,7 +319,7 @@ class PeerGui(threading.Thread):
             parent = child
             if not collapsed:
               dirs = tid.split("/")[1:]
-              for xdir in dirs:
+              for xdir in dirs[:-1]:
                 exists = False
                 for i in range(self.tree.GetChildrenCount(parent)):
                   item, foo = self.tree.GetFirstChild(parent)
