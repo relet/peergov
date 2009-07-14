@@ -10,6 +10,8 @@ from datamanager import *
 EVT_PEER_PROTOCOL_VERIFIED = 1
 EVT_PEER_AUTHORITIES_SYNCHRONIZED = 2
 EVT_PEER_TOPIC_SYNCHRONIZED = 3
+EVT_PEER_PROPOSALS_SYNCHRONIZED = 3
+EVT_PEER_VOTES_SYNCHRONIZED = 3
 
 class Servent:
   PROTOCOL_IDENTIFIER = "peergov_p001"
@@ -108,7 +110,7 @@ class ServentThread (threading.Thread):
 
   def run(self):
     while not self.stopped:
-      print("Listening on %s." % str(self.socket.getsockname()))
+      #print("Listening on %s." % str(self.socket.getsockname()))
       try:
         conn, addr = self.socket.accept() #FIXME: this method can block incoming connections until SSL handshake is completed!
         print("Incoming connection from %s." % str(addr))
@@ -130,7 +132,8 @@ STATE_DATABLOCK = 1
 class ServentConnectionHandler(threading.Thread):
   syncingAuthorities_lock = threading.Lock()
   syncingTopics_lock      = threading.Lock()
-  syncingTopicData_lock   = threading.Lock()
+  syncingProposals_lock   = threading.Lock()
+  syncingVotes_lock       = threading.Lock()
 
   def __init__(self, conn, addr, servent, isClient=False):
     self.conn = conn
@@ -145,6 +148,8 @@ class ServentConnectionHandler(threading.Thread):
     self.authorities = None
     self.lastAuthSync = None
     self.lastTopicSync = None
+    self.lastProposalSync = None
+    self.lastVoteSync = None
     threading.Thread.__init__(self)
 
   def parseMessage(self, data, peerid):
@@ -155,6 +160,7 @@ class ServentConnectionHandler(threading.Thread):
           self.parseLine(line, peerid) 
 
   def parseLine(self, data, peerid):
+    print peerid,":",data
     try:
       dataman = self.servent.manager.datamanager  # lol, we need to trim down hierarchies
       if self.state == STATE_DATABLOCK:
@@ -232,7 +238,7 @@ class ServentConnectionHandler(threading.Thread):
               self.conn.send("SYNC AUTH FIN\n")
           return
         elif words[1]=="TOPC":
-          self.syncingTopics_lock.acquire(False) # non blocking, lock into syncAuth process
+          self.syncingTopics_lock.acquire(False) # non blocking
           if words[2:]:
             authority = None
             nextword  = 2
@@ -274,24 +280,106 @@ class ServentConnectionHandler(threading.Thread):
                   next = topics[p2+1:]
                   if next:
                     self.lastTopicSync = next[0]
-                    self.conn.send("SYNC TOPC %s \n" % (next[0]))
+                    self.conn.send("SYNC TOPC %s\n" % (next[0]))
                   else:
                     self.conn.send("SYNC TOPC %s FIN\n" % (authority.fpr))
                 return
         elif words[1]=="PROP":
-          print data
-          return
+          self.syncingProposals_lock.acquire(False) # non blocking
+          if words[2:]:
+            authority = dataman.getAuthority(words[2][:words[2].index("/")])
+            if authority:
+              with authority.topics_lock:
+                topic = authority.topics[words[2]]
+                with topic.proposals_lock:
+                  proposals = map(lambda x:x['id'], topic.proposals[:])
+                  proposals.sort()
+                  p1 = self.lastProposalSync and proposals.index(self.lastProposalSync) or 0
+                  if words[3] == "FIN":
+                    next = proposals[p1+1:]
+                    if next:
+                      self.lastProposalSync = next[0]
+                      self.conn.send("SYNC PROP %s %s\n" % (words[2], next[0]))
+                    else:
+                      self.syncingProposals_lock.release()
+                      if not "ACK" in words:
+                        self.conn.send("SYNC PROP %s FIN ACK\n" % (words[2]))
+                      else:
+                        self.servent.manager.handleServentEvent(EVT_PEER_PROPOSALS_SYNCHRONIZED, self.peerid)
+                    return
+                  for word in words[3:]:
+                    if not word in proposals:
+                      self.conn.send("SEND PROP %s %s\n" % (words[2], word))
+                  p2 = proposals.index(words[3])
+                  lack = ""
+                  for proposal in proposals[p1+1:p2]:
+                    lack += proposal+" "
+                  self.lastProposalSync = words[-1]
+                  if lack:
+                    self.conn.send("SYNC PROP %s %s\n" % (words[2], lack))
+                  else:
+                    next = proposals[p2+1:]
+                    if next:
+                      self.lastProposalSync = next[0]
+                      self.conn.send("SYNC PROP %s %s\n" % (words[2], next[0]))
+                    else:
+                      self.conn.send("SYNC PROP %s FIN\n" % (words[2]))
+            return
         elif words[1]=="VOTE":
-          print data
-          return
+          self.syncingVotes_lock.acquire(False) # non blocking
+          if words[2:]:
+            authority = dataman.getAuthority(words[2][:words[2].index("/")])
+            if authority:
+              with authority.topics_lock:
+                topic = authority.topics[words[2]]
+                with topic.votes_lock:
+                  votes = topic.votes.keys()
+                  votes.sort()
+                  p1 = self.lastVoteSync and votes.index(self.lastVoteSync) or 0
+                  if words[3] == "FIN":
+                    next = votes[p1+1:]
+                    if next:
+                      self.lastVoteSync = next[0]
+                      self.conn.send("SYNC VOTE %s %s\n" % (words[2], next[0]))
+                    else:
+                      self.syncingVotes_lock.release()
+                      if not "ACK" in words:
+                        self.conn.send("SYNC VOTE %s FIN ACK\n" % (words[2]))
+                      else:
+                        self.servent.manager.handleServentEvent(EVT_PEER_VOTES_SYNCHRONIZED, self.peerid)
+                    return
+                  for word in words[3:]:
+                    if not word in votes:
+                      self.conn.send("SEND VOTE %s %s\n" % (words[2], word))
+                  p2 = votes.index(words[3])
+                  lack = ""
+                  for vote in votes[p1+1:p2]:
+                    lack += vote+" "
+                  self.lastVoteSync = words[-1]
+                  if lack:
+                    self.conn.send("SYNC VOTE %s %s\n" % (words[2], lack))
+                  else:
+                    next = votes[p2+1:]
+                    if next:
+                      self.lastVoteSync = next[0]
+                      self.conn.send("SYNC VOTE %s %s\n" % (words[2], next[0]))
+                    else:
+                      self.conn.send("SYNC VOTE %s FIN\n" % (words[2]))
+            return
       elif words[0]=="SEND":
         if words[1]=="TOPC":
-           authority = dataman.getAuthority(words[2]) #authority fpr
-           topic   = authority.topics[words[3]]
-           self.conn.send("DATA TOPC %s %s\n" % (authority.fpr, words[3])); 
-           self.conn.send("%s\n" %yaml.dump([topic.data, topic.proposals, topic.votes])); #sending yaml dumps around is *NOT* smart. They may contain arbitrary data.
-           self.conn.send("DATA FIN\n"); 
-           return
+          authority = dataman.getAuthority(words[2]) #authority fpr
+          topic   = authority.topics[words[3]]
+          self.conn.send("DATA TOPC %s %s\n" % (authority.fpr, words[3])); 
+          self.conn.send("%s\n" %yaml.dump([topic.data, topic.proposals, topic.votes])); #sending yaml dumps around is *NOT* smart. They may ontain arbitrary data.
+          self.conn.send("DATA FIN\n"); 
+          return
+        if words[1]=="PROP":
+          print "Well well."
+          return
+        if words[1]=="VOTE":
+          print "Well well."
+          return
       elif words[0]=="DATA":
         self.state = STATE_DATABLOCK
         self.datablock = ""
@@ -324,14 +412,15 @@ class ServentConnectionHandler(threading.Thread):
 
   def syncTopicData(self, authority, topic):
     if authority:
-      if self.syncingTopicData_lock.acquire(False):
-        with authority.topics_lock:
-          topic = authority.topics[topic]
+      with authority.topics_lock:
+        topic = authority.topics[topic]
+        if self.syncingProposals_lock.acquire(False):
           with topic.proposals_lock:
-            proposals = topic.proposals[:]
+            proposals = map(lambda x:x['id'], topic.proposals[:])
             proposals.sort()
             if proposals:
-              self.conn.send("SYNC PROP %s %s\n" % (topic.data['path'], proposals[0]['id']))
+              self.conn.send("SYNC PROP %s %s\n" % (topic.data['path'], proposals[0]))
+        if self.syncingVotes_lock.acquire(False):
           with topic.votes_lock:
             votes = topic.votes.keys()
             votes.sort()
