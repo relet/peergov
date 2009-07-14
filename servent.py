@@ -150,6 +150,8 @@ class ServentConnectionHandler(threading.Thread):
     self.lastTopicSync = None
     self.lastProposalSync = None
     self.lastVoteSync = None
+    self.datablock = None
+    self.dataparms = None
     threading.Thread.__init__(self)
 
   def parseMessage(self, data, peerid):
@@ -172,13 +174,27 @@ class ServentConnectionHandler(threading.Thread):
               if not content[0]['path'] in self.authority.topics:
                 with self.authority.topics_lock:
                   topic = Topic()
-                  self.authority.topics[content[0]['path']]=topic
                   topic.data, topic.proposals, topic.votes = content
                   #TODO: validate signatures etc. - create utility methods in data manager!              
+                  self.authority.topics[content[0]['path']]=topic
+            elif content[0]['type']=='proposal':
+              with self.authority.topics_lock:
+                topic = self.authority.topics[self.dataparms[0]]
+                with topic.proposals_lock:
+                  if not topic.getProposalById(content[0]['id']):
+                    #TODO: validate signatures etc. - create utility methods in data manager!              
+                    topic.proposals.append(content[0])
+            elif content[0]['type']=='vote':
+              with self.authority.topics_lock:
+                topic = self.authority.topics[self.dataparms[0]]
+                with topic.votes_lock:
+                  #TODO: validate signatures etc. - create utility methods in data manager!              
+                  topic.votes[content[0]['id']]=content[0]
             else:
               print content
           except:
             print ("Failed to parse:\n---\n%s\n---" % self.datablock)
+            traceback.print_exc()
             sys.exit(1)
           self.state == STATE_IDLE 
         else:
@@ -266,7 +282,7 @@ class ServentConnectionHandler(threading.Thread):
                   return
                 for word in words[nextword:]:
                   if not word in topics:
-                    self.conn.send("SEND TOPC %s %s\n" % (authority.fpr, word))
+                    self.conn.send("SEND TOPC %s\n" % (word))
                   else:
                     self.syncTopicData(authority, word)
                 p2 = topics.index(words[nextword])
@@ -368,23 +384,33 @@ class ServentConnectionHandler(threading.Thread):
             return
       elif words[0]=="SEND":
         if words[1]=="TOPC":
-          authority = dataman.getAuthority(words[2]) #authority fpr
-          topic   = authority.topics[words[3]]
+          authority = dataman.getAuthority(words[2][:words[2].index("/")])
+          topic   = authority.topics[words[2]]
           self.conn.send("DATA TOPC %s %s\n" % (authority.fpr, words[3])); 
           self.conn.send("%s\n" %yaml.dump([topic.data, topic.proposals, topic.votes])); #sending yaml dumps around is *NOT* smart. They may ontain arbitrary data.
           self.conn.send("DATA FIN\n"); 
           return
         if words[1]=="PROP":
-          print "Well well."
+          authority = dataman.getAuthority(words[2][:words[2].index("/")])
+          topic     = authority.topics[words[2]]
+          proposal  = topic.getProposalById(words[3])
+          self.conn.send("DATA PROP %s %s\n" % (words[2], words[3])); 
+          self.conn.send("%s\n" %yaml.dump([proposal])); #sending yaml dumps around is *NOT* smart. They may ontain arbitrary data.
+          self.conn.send("DATA FIN\n"); 
           return
         if words[1]=="VOTE":
-          print "Well well."
+          authority = dataman.getAuthority(words[2][:words[2].index("/")])
+          topic     = authority.topics[words[2]]
+          vote      = topic.votes[words[3]]
+          self.conn.send("DATA VOTE %s %s\n" % (words[2], words[3])); 
+          self.conn.send("%s\n" %yaml.dump([vote])); #sending yaml dumps around is *NOT* smart. They may ontain arbitrary data.
+          self.conn.send("DATA FIN\n"); 
           return
       elif words[0]=="DATA":
         self.state = STATE_DATABLOCK
         self.datablock = ""
-        if words[1]=="TOPC":
-          self.authority = dataman.getAuthority(words[2])
+        self.authority = dataman.getAuthority(words[2][:words[2].index("/")])
+        self.dataparms = words[2:]
         return
      
       raise(Exception("Instruction just not recognized."))
