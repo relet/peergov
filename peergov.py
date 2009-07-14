@@ -142,14 +142,20 @@ class Peergov:
               prop = yaml.load(propy.read())
               if prop['type']=='proposal': 
                 with topic.proposals_lock:
-                  #TODO: find duplicates, update with newer time stamp
-                  topic.proposals.append(prop)
+                  if topic.getProposalById(prop['id']):
+                    pass #TODO: find duplicates, update with newer time stamp                  
+                  else:
+                    topic.proposals.append(prop)
                 return
               elif prop['type']=='vote' and authorized: 
                 with topic.votes_lock:
-                  #TODO: find duplicates, update with newer time stamp
-                  topic.addVote(prop)
+                  if prop['id'] in topic.votes:
+                    pass #TODO: find duplicates, update with newer time stamp
+                  else:
+                    topic.addVote(prop)
                 return
+              else:
+                print "NOT A PROP NOR A VOTE!"
           elif key_missing:
             print("Signing key not available/imported for user %s from file %s." % (sig.fpr,file))
             return
