@@ -122,6 +122,7 @@ class Peergov:
                   else:
                     topic.addVote(prop)
                 return
+<<<<<<< HEAD:peergov.py
               elif prop['type']=='topic':
                 if not prop['path'] == pdir[-len(prop['path']):]:
                   print ("Topic path is not correct: %s." % (str(xdir)))
@@ -142,6 +143,10 @@ class Peergov:
               else:
                 print "NOT A PROPOSAL, TOPIC NOR A VOTE!"
                 print data
+=======
+              else:
+                print "NOT A PROP NOR A VOTE!"
+>>>>>>> d14ab69737abe4e4894391320c511f0ee463ef96:peergov.py
           elif key_missing:
             print("Signing key not available/imported for user %s from file %s." % (sig.fpr,file))
             return
