@@ -58,42 +58,10 @@ class Peergov:
         yamldata = open(topicsig, "r")
         data = yaml.load(yamldata.read())
         if data:
-          sig   = pyme.core.Data(data['sig'])
-          topicy = pyme.core.Data()
-          if not self.cctx.op_verify(sig, None, topicy):
-            sigs = self.cctx.op_verify_result().signatures
-            sig = sigs[0] # we don't support multiple. 
-            valid = (sig.summary & pyme.constants.sigsum.VALID) > 0
-            if valid:
-              #TODO: get signature key and name using get_key(fpr)
-              sigkey = self.cctx.get_key(sig.fpr, 0)
-              topicy.seek(0,0)
-              topic = yaml.load(topicy.read())
-              if not topic['type']=='topic': #someone exchanged the files
-                return
-              if not topic['path'] == xdir[-len(topic['path']):]:
-                print ("Topic path is not correct: %s." % (str(xdir)))
-                return
-              with self.manager.authorities_lock:
-                auth = self.manager.addAuthority(sig.fpr, interesting=True) #trusted?
-                auth.name = sigkey.uids[0].uid
-                auth.fpr = sig.fpr
-                pdir = xdir[len(self.datadir)+1:]
-                with auth.topics_lock:
-                  to = auth.topics[pdir] = Topic()
-                  to.data      = topic
-                  to.signature = data['sig']
-            else:
-              print ("Signature of %s is not VALID - %s." % (str(xdir), desigsum(sig.summary)))
-          else:
-            print ("Verification of topic %s failed." % str(xdir))
-      #except Exception,e:
-      #  print("Failed to parse topic signature. %s" % str(e))
-    else:
-      #print("No topic signature found for %s" % str(xdir)) 
-      pass
+          pdir = xdir[len(self.datadir)+1:]
+          self.parseSignedBlob(pdir, data, local=True)
 
-  def parseSignedBlob(self, pdir, data):
+  def parseSignedBlob(self, pdir, data, local = False):
     #TODO: fix indentation
         with self.manager.authorities_lock:
           authority, topic = self.manager.getTopicByPath(pdir)
@@ -142,14 +110,38 @@ class Peergov:
               prop = yaml.load(propy.read())
               if prop['type']=='proposal': 
                 with topic.proposals_lock:
-                  #TODO: find duplicates, update with newer time stamp
-                  topic.proposals.append(prop)
+                  if topic.getProposalById(prop['id']):
+                    pass #TODO: find duplicates, update with newer time stamp                  
+                  else:
+                    topic.proposals.append(prop)
                 return
               elif prop['type']=='vote' and authorized: 
                 with topic.votes_lock:
-                  #TODO: find duplicates, update with newer time stamp
-                  topic.addVote(prop)
+                  if prop['id'] in topic.votes:
+                    pass #TODO: find duplicates, update with newer time stamp
+                  else:
+                    topic.addVote(prop)
                 return
+              elif prop['type']=='topic':
+                if not prop['path'] == pdir[-len(prop['path']):]:
+                  print ("Topic path is not correct: %s." % (str(xdir)))
+                  return
+                with self.manager.authorities_lock:
+                  auth = self.manager.getAuthority(sig.fpr)
+                  if not auth:
+                    sigkey = self.cctx.get_key(sig.fpr, 0)
+                    auth = self.manager.addAuthority(sig.fpr)                    
+                    auth.name = sigkey.uids[0].uid
+                    auth.fpr = sig.fpr
+                    if local:
+                      auth.interesting = True
+                  with auth.topics_lock:
+                    to = auth.topics[pdir] = Topic()
+                    to.data      = prop
+                    to.signature = data['sig']
+              else:
+                print "NOT A PROPOSAL, TOPIC NOR A VOTE!"
+                print data
           elif key_missing:
             print("Signing key not available/imported for user %s from file %s." % (sig.fpr,file))
             return
@@ -165,7 +157,7 @@ class Peergov:
         yamldata = open(xdir + "/" + file, "r")
         data = yaml.load(yamldata.read())
         if data:
-          self.parseSignedBlob(pdir, data)
+          self.parseSignedBlob(pdir, data, local=True)
         yamldata.close()
       else:
         print("Skipping data file %s/%s. No authority/topic found." % (xdir, file)) 
