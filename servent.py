@@ -170,26 +170,15 @@ class ServentConnectionHandler(threading.Thread):
         if data == "DATA FIN":
           try:
             content = yaml.load(self.datablock)
-            if content[0]['type']=='topic':
+            if 'sig' in content:
+              self.servent.manager.peergov.parseSignedBlob(self.dataparms[0], content)
+            elif content[0]['type']=='topic':
               if not content[0]['path'] in self.authority.topics:
                 with self.authority.topics_lock:
                   topic = Topic()
                   topic.data, topic.proposals, topic.votes = content
                   #TODO: validate signatures etc. - create utility methods in data manager!              
                   self.authority.topics[content[0]['path']]=topic
-            elif content[0]['type']=='proposal':
-              with self.authority.topics_lock:
-                topic = self.authority.topics[self.dataparms[0]]
-                with topic.proposals_lock:
-                  if not topic.getProposalById(content[0]['id']):
-                    #TODO: validate signatures etc. - create utility methods in data manager!              
-                    topic.proposals.append(content[0])
-            elif content[0]['type']=='vote':
-              with self.authority.topics_lock:
-                topic = self.authority.topics[self.dataparms[0]]
-                with topic.votes_lock:
-                  #TODO: validate signatures etc. - create utility methods in data manager!              
-                  topic.votes[content[0]['id']]=content[0]
             else:
               print content
           except:
@@ -394,17 +383,26 @@ class ServentConnectionHandler(threading.Thread):
           authority = dataman.getAuthority(words[2][:words[2].index("/")])
           topic     = authority.topics[words[2]]
           proposal  = topic.getProposalById(words[3])
-          self.conn.send("DATA PROP %s %s\n" % (words[2], words[3])); 
-          self.conn.send("%s\n" %yaml.dump([proposal])); #sending yaml dumps around is *NOT* smart. They may ontain arbitrary data.
-          self.conn.send("DATA FIN\n"); 
+          if proposal:
+            self.conn.send("DATA PROP %s %s\n" % (words[2], words[3])); 
+            yamldata = open(self.servent.manager.peergov.datadir + "/" + words[2] + "/" + words[3], "r") 
+            data = yaml.load(yamldata.read())
+            yamldata.close()
+            self.conn.send("%s\n" % (data)); 
+            self.conn.send("DATA FIN\n"); 
           return
         if words[1]=="VOTE":
           authority = dataman.getAuthority(words[2][:words[2].index("/")])
           topic     = authority.topics[words[2]]
           vote      = topic.votes[words[3]]
-          self.conn.send("DATA VOTE %s %s\n" % (words[2], words[3])); 
-          self.conn.send("%s\n" %yaml.dump([vote])); #sending yaml dumps around is *NOT* smart. They may ontain arbitrary data.
-          self.conn.send("DATA FIN\n"); 
+          if vote:
+            self.conn.send("DATA VOTE %s %s\n" % (words[2], words[3]));           
+            yamldata = open(self.servent.manager.peergov.datadir + "/" + words[2] + "/" + words[3], "r") 
+            data = yaml.load(yamldata.read())
+            yamldata.close()
+            self.conn.send("%s\n" % (data)); 
+            self.conn.send("%s\n" % (data)); 
+            self.conn.send("DATA FIN\n"); 
           return
       elif words[0]=="DATA":
         self.state = STATE_DATABLOCK

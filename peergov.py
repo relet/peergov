@@ -93,16 +93,10 @@ class Peergov:
       #print("No topic signature found for %s" % str(xdir)) 
       pass
 
-  def loadData(self, xdir, file): #proposals and votes
-    if file==".topic":
-      return
-    pdir = xdir[len(self.datadir)+1:]
-    with self.manager.authorities_lock:
-      authority, topic = self.manager.getTopicByPath(pdir)
-      if authority and topic:
-        yamldata = open(xdir + "/" + file, "r")
-        data = yaml.load(yamldata.read())
-        if data:
+  def parseSignedBlob(self, pdir, data):
+    #TODO: fix indentation
+        with self.manager.authorities_lock:
+          authority, topic = self.manager.getTopicByPath(pdir)
           authorized = None
           if 'key' in data and 'auth' in data: #a key is provided. check key authorization
             authsig = pyme.core.Data(data['auth'])
@@ -118,10 +112,9 @@ class Peergov:
               return
             authy.seek(0,0)
             auth = yaml.load(authy.read())
-            xcomp = xdir[len(self.datadir)+1:]
-            if not auth[1] in xcomp:
-              print auth[1], xcomp
-              print("Authorization in %s not valid for topic %s." % (file, xcomp))
+            if not auth[1] in pdir:
+              print auth[1], pdir
+              print("Authorization in %s not valid for topic %s." % (file, pdir))
               return
             authorized = auth[0]
             try:
@@ -149,15 +142,31 @@ class Peergov:
               prop = yaml.load(propy.read())
               if prop['type']=='proposal': 
                 with topic.proposals_lock:
+                  #TODO: find duplicates, update with newer time stamp
                   topic.proposals.append(prop)
                 return
               elif prop['type']=='vote' and authorized: 
                 with topic.votes_lock:
+                  #TODO: find duplicates, update with newer time stamp
                   topic.addVote(prop)
                 return
           elif key_missing:
             print("Signing key not available/imported for user %s from file %s." % (sig.fpr,file))
             return
+
+
+  def loadData(self, xdir, file): #proposals and votes
+    if file==".topic":
+      return
+    pdir = xdir[len(self.datadir)+1:]
+    with self.manager.authorities_lock:
+      authority, topic = self.manager.getTopicByPath(pdir)
+      if authority and topic:
+        yamldata = open(xdir + "/" + file, "r")
+        data = yaml.load(yamldata.read())
+        if data:
+          self.parseSignedBlob(pdir, data)
+        yamldata.close()
       else:
         print("Skipping data file %s/%s. No authority/topic found." % (xdir, file)) 
 
