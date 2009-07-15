@@ -4,8 +4,14 @@ import os, sys
 import yaml
 import pyme.core
 import pyme.constants.sigsum
-import wx, wx.html
 import threading
+
+hasGui = False
+try:
+  import wx, wx.html
+  hasGui = True
+except:
+  pass
 
 import SchulzeVoting
 from datamanager import Authority, Topic, DataManager
@@ -207,8 +213,13 @@ class Peergov:
       for file in files:
         self.loadAuth(root, file)
 
-    self.initGui()
+    if hasGui:
+      self.initGui()
     self.peermanager = PeerManager(argv, peergov = self)
+  
+  def resetTree(self):
+    if hasGui:
+      self.gui.resetTree()
   
 class PeerGui(threading.Thread):
   def __init__(self, peergov, manager):

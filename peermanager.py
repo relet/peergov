@@ -33,7 +33,7 @@ class PeerManager:
               self.servent.syncTopics(peerid, authority)
         else:
           print("No authorities?")
-      self.peergov.gui.resetTree()
+      self.peergov.resetTree()
     elif event == EVT_PEER_TOPIC_SYNCHRONIZED:
-      self.peergov.gui.resetTree()
+      self.peergov.resetTree()
       
