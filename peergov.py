@@ -326,9 +326,8 @@ class PeerGui(threading.Thread):
   def initTree(self, collapsed=True):
     with self.manager.authorities_lock:
       for fpr, authority in self.manager.authorities.iteritems():
-        if not authority.name:
-          continue
-        child = self.tree.AppendItem(self.root, authority.name)
+        name = authority.name or authority.fpr
+        child = self.tree.AppendItem(self.root, name)
         self.tree.SetItemData(child, wx.TreeItemData(authority.fpr))
         self.tree.SetItemHasChildren(child)
         with authority.topics_lock:
