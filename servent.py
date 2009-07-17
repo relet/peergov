@@ -209,6 +209,7 @@ class ServentConnectionHandler(threading.Thread):
           if words[2]=="FIN":
             next = self.authorities[p1+1:]
             if next:
+              self.lastAuthSync = next[0]
               self.conn.send("SYNC AUTH "+next[0]+"\n")
             else:
               self.syncingAuthorities_lock.release()
