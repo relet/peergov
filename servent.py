@@ -226,6 +226,7 @@ class ServentConnectionHandler(threading.Thread):
               dataman.addAuthority(word, trusted = False, interesting = False)
             else:
               p2 = self.authorities.index(word) #by the algorithm, this *should* not override itself
+          lack = !!
           for auth in self.authorities[p1+1:p2]: 
             lack += auth+" "
           self.lastAuthSync = words[-1]
