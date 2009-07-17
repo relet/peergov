@@ -442,7 +442,7 @@ class ServentConnectionHandler(threading.Thread):
           if topics:
             self.conn.send("SYNC TOPC %s\n" % (topics[0]))
           else:
-            self.conn.send("SYNC TOPC FIN\n")
+            self.conn.send("SYNC TOPC %s FIN\n" % (authority.fpr))
 
   def syncTopicData(self, authority, topic):
     if authority:
