@@ -220,16 +220,12 @@ class ServentConnectionHandler(threading.Thread):
               else:
                 self.servent.manager.handleServentEvent(EVT_PEER_AUTHORITIES_SYNCHRONIZED, self.peerid)
             return
+          p2 = p1
           for word in words[2:]:
             if not word in self.authorities:
               dataman.addAuthority(word, trusted = False, interesting = False)
-              with dataman.authorities_lock:
-                authorities = dataman.authorities.keys()
-                authorities.sort()
-                self.authorities = authorities
-                print authorities
-          p2 = self.authorities.index(words[2])
-          lack = ""
+            else:
+              p2 = self.authorities.index(word) #by the algorithm, this *should* not override itself
           for auth in self.authorities[p1+1:p2]: 
             lack += auth+" "
           self.lastAuthSync = words[-1]
@@ -270,12 +266,13 @@ class ServentConnectionHandler(threading.Thread):
                     else:
                       self.servent.manager.handleServentEvent(EVT_PEER_TOPIC_SYNCHRONIZED, self.peerid) # do we need this event?
                   return
+                p2 = p1
                 for word in words[nextword:]:
                   if not word in topics:
                     self.conn.send("SEND TOPC %s\n" % (word))
                   else:
                     self.syncTopicData(authority, word)
-                p2 = topics.index(words[nextword])
+                    p2 = topics.index(word)
                 lack = ""
                 for topic in topics[p1+1:p2]:
                   lack += topic+" "
@@ -314,10 +311,12 @@ class ServentConnectionHandler(threading.Thread):
                       else:
                         self.servent.manager.handleServentEvent(EVT_PEER_PROPOSALS_SYNCHRONIZED, self.peerid)
                     return
+                  p2 = p2
                   for word in words[3:]:
                     if not word in proposals:
                       self.conn.send("SEND PROP %s %s\n" % (words[2], word))
-                  p2 = proposals.index(words[3])
+                    else:
+                      p2 = proposals.index(word)
                   lack = ""
                   for proposal in proposals[p1+1:p2]:
                     lack += proposal+" "
@@ -356,10 +355,12 @@ class ServentConnectionHandler(threading.Thread):
                       else:
                         self.servent.manager.handleServentEvent(EVT_PEER_VOTES_SYNCHRONIZED, self.peerid)
                     return
+                  p2 = p1
                   for word in words[3:]:
                     if not word in votes:
                       self.conn.send("SEND VOTE %s %s\n" % (words[2], word))
-                  p2 = votes.index(words[3])
+                    else:
+                      p2 = votes.index(word)
                   lack = ""
                   for vote in votes[p1+1:p2]:
                     lack += vote+" "
