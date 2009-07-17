@@ -9,12 +9,12 @@ class PeerManager:
     if len(argv)==0:
       print("No meta-peers found on command line. TODO: look for peers in peer history")
       print("Connectivity is currently disabled.")
-      return
-    self.servent = Servent(self)
+    defaultport = self.peergov.port or 4991
+    self.servent = Servent(self, defaultport)
     for peer in argv:
       try:
-        hp = peer.split(":") #host:port for ipv4 - what's the common notation for ipv6?
-        port = hp[1:2] and int(hp[1]) or 4991
+        hp = peer.split(":") #host:port for ipv4 or name lookup. FIXME: needs regexp for ipv6
+        port = hp[1:2] and int(hp[1]) or defaultport
         self.servent.connectTo((2,1,6,'',(hp[0], port))) 
         pass
       except Exception,e:

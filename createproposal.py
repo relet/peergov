@@ -19,10 +19,10 @@ c.set_passphrase_cb(getPassphrase)
 
 topic = {}
 topic['type']='proposal'
-topic['path']='58BD0CCEB421BFB9BE694135F66EA1A3025BA2BF/lunch/2009-07-15/place'
-topic['title']='Mozzarella'
+topic['path']='58BD0CCEB421BFB9BE694135F66EA1A3025BA2BF/lunch/2009-07-16/place'
+topic['title']='Sushi'
 topic['id']=md5(topic['path']+topic['title']).hexdigest()
-topic['short']='We shall eat finest Italian pizza and pasta.'
+topic['short']='We shall eat tasty miso soup and rice rolls.'
 topic['text']=None
 topic['author']='futterbot'
 

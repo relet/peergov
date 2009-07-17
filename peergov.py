@@ -184,13 +184,18 @@ class Peergov:
       print("Path %s is not a directory. Aborting." % str(xdir))
       sys.exit(1)
   
+  def getConfig(self, key):
+    if key in self.config:
+      return self.config[key]
+    return None
     
   def __init__(self, argv):
     self.config = yaml.load(open(".peergovrc","r").read())
-    self.basedir = self.config['basedir']
-    self.datadir = self.config['datadir']
-    self.authdir = self.config['authdir']
-    self.user    = self.config['userfpr'] #TODO: confirm that fingerprint actually exists in key ring
+    self.basedir = self.getConfig('basedir')
+    self.datadir = self.getConfig('datadir')
+    self.authdir = self.getConfig('authdir')
+    self.user    = self.getConfig('userfpr') #TODO: confirm that fingerprint actually exists in key ring
+    self.port    = self.getConfig('port')
     self.authorizations = {}
     self.currentAuthorization = None #authorization to vote on currentTopic
   

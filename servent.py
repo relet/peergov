@@ -16,7 +16,7 @@ EVT_PEER_VOTES_SYNCHRONIZED = 3
 class Servent:
   PROTOCOL_IDENTIFIER = "peergov_p001"
 
-  def __init__(self, peermanager, ip=None, port=4991, id=None):
+  def __init__(self, peermanager, port, ip=None, id=None):
     self.manager = peermanager
     self.peers_lock = threading.RLock()
     self.peers={}           # peerid -> ServentConnectionHandler 
