@@ -22,7 +22,7 @@ class PeerManager:
   def handleServentEvent(self, event, peerid):
     if event == EVT_PEER_PROTOCOL_VERIFIED:
       self.servent.syncAuthorities(peerid)
-    elif event == EVT_PEER_AUTHORITIES_SYNCHRONIZED:    
+    elif event == EVT_PEER_AUTHORITIES_SYNCHRONIZED:   
       with self.datamanager.authorities_lock:
         authorities = self.datamanager.authorities 
         if authorities:

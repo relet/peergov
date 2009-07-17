@@ -227,6 +227,7 @@ class ServentConnectionHandler(threading.Thread):
                 authorities = dataman.authorities.keys()
                 authorities.sort()
                 self.authorities = authorities
+                print authorities
           p2 = self.authorities.index(words[2])
           lack = ""
           for auth in self.authorities[p1+1:p2]: 
