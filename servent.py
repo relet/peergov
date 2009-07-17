@@ -178,7 +178,7 @@ class ServentConnectionHandler(threading.Thread):
             print ("Failed to parse:\n---\n%s\n---" % self.datablock)
             traceback.print_exc()
             sys.exit(1)
-          self.state == STATE_IDLE 
+          self.state = STATE_IDLE 
         else:
           self.datablock += data+"\n"
         return
@@ -387,31 +387,17 @@ class ServentConnectionHandler(threading.Thread):
             yamldata.close()
             self.conn.send("DATA TOPC %s\n" % (words[2])); 
             self.conn.send("%s\n" % (data)); 
-            self.conn.send("DATA FIN\n"); 
+            self.conn.send("DATA FIN\n");             
+            for proposal in topic.proposals:
+              self.sendProposal(dataman, words[2], proposal['id'])
+            for voteid in topic.votes.keys():
+              self.sendVote(dataman, words[2], voteid)
           return
         if words[1]=="PROP":
-          authority = dataman.getAuthority(words[2][:words[2].index("/")])
-          topic     = authority.topics[words[2]]
-          proposal  = topic.getProposalById(words[3])
-          if proposal:
-            yamldata = open(self.servent.manager.peergov.datadir + "/" + words[2] + "/" + words[3], "r") 
-            data = yaml.load(yamldata.read())
-            yamldata.close()
-            self.conn.send("DATA PROP %s %s\n" % (words[2], words[3])); 
-            self.conn.send("%s\n" % (data)); 
-            self.conn.send("DATA FIN\n"); 
+          self.sendProposal(dataman, words[2], words[3])
           return
         if words[1]=="VOTE":
-          authority = dataman.getAuthority(words[2][:words[2].index("/")])
-          topic     = authority.topics[words[2]]
-          vote      = topic.votes[words[3]]
-          if vote:
-            yamldata = open(self.servent.manager.peergov.datadir + "/" + words[2] + "/" + words[3], "r") 
-            data = yaml.load(yamldata.read())
-            yamldata.close()
-            self.conn.send("DATA VOTE %s %s\n" % (words[2], words[3]));           
-            self.conn.send("%s\n" % (data)); 
-            self.conn.send("DATA FIN\n"); 
+          self.sendVote(dataman, words[2], words[3])
           return
       elif words[0]=="DATA":
         self.state = STATE_DATABLOCK
@@ -424,6 +410,31 @@ class ServentConnectionHandler(threading.Thread):
     except Exception, e:     
       traceback.print_exc()
       print("Failed to parse incoming data. %s" % str(e))
+
+  def sendProposal(self, datamanager, topicid, proposalid):
+    authority = datamanager.getAuthority(topicid[:topicid.index("/")])
+    topic     = authority.topics[topicid]
+    proposal  = topic.getProposalById(proposalid)
+    if proposal:
+      yamldata = open(self.servent.manager.peergov.datadir + "/" + topicid + "/" + proposalid, "r") 
+      data = yaml.load(yamldata.read())
+      yamldata.close()
+      self.conn.send("DATA PROP %s %s\n" % (topicid, proposalid)); 
+      self.conn.send("%s\n" % (data)); 
+      self.conn.send("DATA FIN\n"); 
+
+  def sendVote(self, datamanager, topicid, voteid):
+    authority = datamanager.getAuthority(topicid[:topicid.index("/")])
+    topic     = authority.topics[topicid]
+    vote      = topic.votes[voteid]
+    if vote:
+      yamldata = open(self.servent.manager.peergov.datadir + "/" + topicid + "/" + voteid, "r") 
+      data = yaml.load(yamldata.read())
+      yamldata.close()
+      self.conn.send("DATA VOTE %s %s\n" % (topicid, voteid));           
+      self.conn.send("%s\n" % (data)); 
+      self.conn.send("DATA FIN\n"); 
+
 
   def syncAuthorities(self):
     if self.syncingAuthorities_lock.acquire(False):
