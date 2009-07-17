@@ -156,10 +156,9 @@ class ServentConnectionHandler(threading.Thread):
 
   def parseMessage(self, data, peerid):
     if data:
-      lines = data.split("\n")
+      lines = data.strip().split("\n")
       for line in lines:
-        if line.strip():
-          self.parseLine(line, peerid) 
+        self.parseLine(line, peerid) 
 
   def parseLine(self, data, peerid):
     print peerid,":",data
@@ -181,6 +180,8 @@ class ServentConnectionHandler(threading.Thread):
           self.state = STATE_IDLE 
         else:
           self.datablock += data+"\n"
+        return
+      if not data:
         return
       words = map(lambda x:x.strip(),data.split())
       if words[0]=="HELO":
@@ -383,7 +384,7 @@ class ServentConnectionHandler(threading.Thread):
           topic   = authority.topics[words[2]]
           if topic:
             yamldata = open(self.servent.manager.peergov.datadir + "/" + words[2] + "/.topic", "r") 
-            data = yaml.load(yamldata.read())
+            data = yamldata.read()
             yamldata.close()
             self.conn.send("DATA TOPC %s\n" % (words[2])); 
             self.conn.send("%s\n" % (data)); 
@@ -417,7 +418,7 @@ class ServentConnectionHandler(threading.Thread):
     proposal  = topic.getProposalById(proposalid)
     if proposal:
       yamldata = open(self.servent.manager.peergov.datadir + "/" + topicid + "/" + proposalid, "r") 
-      data = yaml.load(yamldata.read())
+      data = yamldata.read()
       yamldata.close()
       self.conn.send("DATA PROP %s %s\n" % (topicid, proposalid)); 
       self.conn.send("%s\n" % (data)); 
@@ -429,7 +430,7 @@ class ServentConnectionHandler(threading.Thread):
     vote      = topic.votes[voteid]
     if vote:
       yamldata = open(self.servent.manager.peergov.datadir + "/" + topicid + "/" + voteid, "r") 
-      data = yaml.load(yamldata.read())
+      data = yamldata.read()
       yamldata.close()
       self.conn.send("DATA VOTE %s %s\n" % (topicid, voteid));           
       self.conn.send("%s\n" % (data)); 
