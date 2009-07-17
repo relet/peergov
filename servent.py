@@ -255,7 +255,8 @@ class ServentConnectionHandler(threading.Thread):
               with authority.topics_lock:
                 topics = authority.topics.keys()
                 topics.sort()
-                p1 = self.lastTopicSync and topics.index(self.lastTopicSync) or -1
+                p1 = self.lastTopicSync and topics.index(self.lastTopicSync) 
+                if p1 == None: p1 = -1
                 if words[nextword]=="FIN":
                   next = topics[p1+1:]
                   if next:
@@ -298,7 +299,8 @@ class ServentConnectionHandler(threading.Thread):
                 with topic.proposals_lock:
                   proposals = map(lambda x:x['id'], topic.proposals[:])
                   proposals.sort()
-                  p1 = self.lastProposalSync and proposals.index(self.lastProposalSync) or -1
+                  p1 = self.lastProposalSync and proposals.index(self.lastProposalSync) 
+                  if p1 == None: p1 = -1
                   if words[3] == "FIN":
                     next = proposals[p1+1:]
                     if next:
@@ -339,7 +341,8 @@ class ServentConnectionHandler(threading.Thread):
                 with topic.votes_lock:
                   votes = topic.votes.keys()
                   votes.sort()
-                  p1 = self.lastVoteSync and votes.index(self.lastVoteSync) or -1
+                  p1 = self.lastVoteSync and votes.index(self.lastVoteSync)
+                  if p1 == None: p1 = -1
                   if words[3] == "FIN":
                     next = votes[p1+1:]
                     if next:
@@ -438,6 +441,8 @@ class ServentConnectionHandler(threading.Thread):
           topics.sort()
           if topics:
             self.conn.send("SYNC TOPC %s\n" % (topics[0]))
+          else:
+            self.conn.send("SYNC TOPC FIN\n")
 
   def syncTopicData(self, authority, topic):
     if authority:
@@ -449,12 +454,16 @@ class ServentConnectionHandler(threading.Thread):
             proposals.sort()
             if proposals:
               self.conn.send("SYNC PROP %s %s\n" % (topic.data['path'], proposals[0]))
+            else:
+              self.conn.send("SYNC PROP %s FIN\n" % (topic.data['path']))
         if self.syncingVotes_lock.acquire(False):
           with topic.votes_lock:
             votes = topic.votes.keys()
             votes.sort()
             if votes:
               self.conn.send("SYNC VOTE %s %s\n" % (topic.data['path'], votes[0]))
+            else:
+              self.conn.send("SYNC VOTE %s FIN\n" % (topic.data['path']))
 
   def run(self):
     if not self.isClient:
