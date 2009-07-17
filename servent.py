@@ -250,44 +250,45 @@ class ServentConnectionHandler(threading.Thread):
               authority = dataman.getAuthority(words[2]) #authority fpr
               nextword = 3
             if authority:
+              topics = None
               with authority.topics_lock:
                 topics = authority.topics.keys()
                 topics.sort()
-                p1 = self.lastTopicSync and topics.index(self.lastTopicSync) 
-                if p1 == None: p1 = -1
-                if words[nextword]=="FIN":
-                  next = topics[p1+1:]
-                  if next:
-                    self.lastTopicSync = next[0]
-                    self.conn.send("SYNC TOPC %s" % (next[0]))
-                  else:
-                    self.syncingTopics_lock.release()
-                    if not "ACK" in words:
-                      self.conn.send("SYNC TOPC %s FIN ACK\n" % (authority.fpr))
-                    else:
-                      self.servent.manager.handleServentEvent(EVT_PEER_TOPIC_SYNCHRONIZED, self.peerid) # do we need this event?
-                  return
-                p2 = p1
-                for word in words[nextword:]:
-                  if not word in topics:
-                    self.conn.send("SEND TOPC %s\n" % (word))
-                  else:
-                    self.syncTopicData(authority, word)
-                    p2 = topics.index(word)
-                lack = ""
-                for topic in topics[p1+1:p2]:
-                  lack += topic+" "
-                self.lastTopicSync = words[-1]
-                if lack:
-                  self.conn.send("SYNC TOPC %s\n" % (lack))
+              p1 = self.lastTopicSync and topics.index(self.lastTopicSync) 
+              if p1 == None: p1 = -1
+              if words[nextword]=="FIN":
+                next = topics[p1+1:]
+                if next:
+                  self.lastTopicSync = next[0]
+                  self.conn.send("SYNC TOPC %s" % (next[0]))
                 else:
-                  next = topics[p2+1:]
-                  if next:
-                    self.lastTopicSync = next[0]
-                    self.conn.send("SYNC TOPC %s\n" % (next[0]))
+                  self.syncingTopics_lock.release()
+                  if not "ACK" in words:
+                    self.conn.send("SYNC TOPC %s FIN ACK\n" % (authority.fpr))
                   else:
-                    self.conn.send("SYNC TOPC %s FIN\n" % (authority.fpr))
+                    self.servent.manager.handleServentEvent(EVT_PEER_TOPIC_SYNCHRONIZED, self.peerid) # do we need this event?
                 return
+              p2 = p1
+              for word in words[nextword:]:
+                if not word in topics:
+                  self.conn.send("SEND TOPC %s\n" % (word))
+                else:
+                  self.syncTopicData(authority, word)
+                  p2 = topics.index(word)
+              lack = ""
+              for topic in topics[p1+1:p2]:
+                lack += topic+" "
+              self.lastTopicSync = words[-1]
+              if lack:
+                self.conn.send("SYNC TOPC %s\n" % (lack))
+              else:
+                next = topics[p2+1:]
+                if next:
+                  self.lastTopicSync = next[0]
+                  self.conn.send("SYNC TOPC %s\n" % (next[0]))
+                else:
+                  self.conn.send("SYNC TOPC %s FIN\n" % (authority.fpr))
+              return
         elif words[1]=="PROP":
           self.syncingProposals_lock.acquire(False) # non blocking
           if words[2:]:
