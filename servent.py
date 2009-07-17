@@ -221,6 +221,10 @@ class ServentConnectionHandler(threading.Thread):
           for word in words[2:]:
             if not word in self.authorities:
               dataman.addAuthority(word, trusted = False, interesting = False)
+              with dataman.authorities_lock:
+                authorities = dataman.authorities.keys()
+                authorities.sort()
+                self.authorities = authorities
           p2 = self.authorities.index(words[2])
           lack = ""
           for auth in self.authorities[p1+1:p2]: 
