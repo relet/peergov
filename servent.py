@@ -205,7 +205,7 @@ class ServentConnectionHandler(threading.Thread):
               authorities = dataman.authorities.keys()
               authorities.sort()
               self.authorities = authorities
-          p1 = self.lastAuthSync and self.authorities.index(self.lastAuthSync) or 0
+          p1 = self.lastAuthSync and self.authorities.index(self.lastAuthSync) or -1
           if words[2]=="FIN":
             next = self.authorities[p1+1:]
             if next:
@@ -249,7 +249,7 @@ class ServentConnectionHandler(threading.Thread):
               with authority.topics_lock:
                 topics = authority.topics.keys()
                 topics.sort()
-                p1 = self.lastTopicSync and topics.index(self.lastTopicSync) or 0
+                p1 = self.lastTopicSync and topics.index(self.lastTopicSync) or -1
                 if words[nextword]=="FIN":
                   next = topics[p1+1:]
                   if next:
@@ -292,7 +292,7 @@ class ServentConnectionHandler(threading.Thread):
                 with topic.proposals_lock:
                   proposals = map(lambda x:x['id'], topic.proposals[:])
                   proposals.sort()
-                  p1 = self.lastProposalSync and proposals.index(self.lastProposalSync) or 0
+                  p1 = self.lastProposalSync and proposals.index(self.lastProposalSync) or -1
                   if words[3] == "FIN":
                     next = proposals[p1+1:]
                     if next:
@@ -333,7 +333,7 @@ class ServentConnectionHandler(threading.Thread):
                 with topic.votes_lock:
                   votes = topic.votes.keys()
                   votes.sort()
-                  p1 = self.lastVoteSync and votes.index(self.lastVoteSync) or 0
+                  p1 = self.lastVoteSync and votes.index(self.lastVoteSync) or -1
                   if words[3] == "FIN":
                     next = votes[p1+1:]
                     if next:
