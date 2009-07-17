@@ -16,6 +16,7 @@ class DataManager:
     with self.authorities_lock:
       if not fpr in self.authorities:
         auth = Authority()
+        auth.fpr = fpr
         auth.trusted = trusted
         auth.interesting = interesting
         self.authorities[fpr]=auth
