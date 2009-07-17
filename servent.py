@@ -421,6 +421,8 @@ class ServentConnectionHandler(threading.Thread):
           authorities.sort()
           self.authorities = authorities       
           self.conn.send("SYNC AUTH %s\n" % (self.authorities[0]))
+        else:
+          self.conn.send("SYNC AUTH FIN\n")
 
   def syncTopics(self, authority):
     if authority:
