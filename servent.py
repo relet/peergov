@@ -205,7 +205,8 @@ class ServentConnectionHandler(threading.Thread):
               authorities = dataman.authorities.keys()
               authorities.sort()
               self.authorities = authorities
-          p1 = self.lastAuthSync and self.authorities.index(self.lastAuthSync) or -1
+          p1 = self.lastAuthSync and self.authorities.index(self.lastAuthSync) 
+          if p1 == None: p1 = -1
           if words[2]=="FIN":
             next = self.authorities[p1+1:]
             if next:
