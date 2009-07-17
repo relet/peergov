@@ -7,8 +7,7 @@ class PeerManager:
     self.datamanager = peergov.manager
     self.peergov = peergov
     if len(argv)==0:
-      print("No meta-peers found on command line. TODO: look for peers in peer history")
-      print("Connectivity is currently disabled.")
+      print("Note: No meta-peers found on command line. TODO: look for peers in peer history")
     defaultport = self.peergov.port or 4991
     self.servent = Servent(self, defaultport)
     for peer in argv:

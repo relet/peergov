@@ -417,9 +417,10 @@ class ServentConnectionHandler(threading.Thread):
       dataman = self.servent.manager.datamanager  # lol, we need to trim down hierarchies
       with dataman.authorities_lock:
         authorities = dataman.authorities.keys()
-        authorities.sort()
-        self.authorities = authorities
-        self.conn.send("SYNC AUTH %s\n" % (self.authorities[0]))
+        if authorities:
+          authorities.sort()
+          self.authorities = authorities       
+          self.conn.send("SYNC AUTH %s\n" % (self.authorities[0]))
 
   def syncTopics(self, authority):
     if authority:
